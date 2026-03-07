@@ -1,0 +1,94 @@
+package com.aiovpn.home
+
+import android.content.Intent
+import android.view.KeyEvent
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.recyclerview.widget.RecyclerView
+import com.aiovpn.login.ServerListActivity
+import com.wireguard.android.R
+
+class FastServerAdapter(
+    private val items: List<FastServerItem>,
+    private val drawerLayout: DrawerLayout,
+    private val onServerClick: (FastServerItem) -> Unit,
+    private val onFirstItemReady: (View) -> Unit
+) : RecyclerView.Adapter<FastServerAdapter.FastServerViewHolder>() {
+
+    inner class FastServerViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val serverName: TextView = view.findViewById(R.id.serverName)
+        val serverPing: TextView = view.findViewById(R.id.serverPing)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FastServerViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_fast_server, parent, false)
+        return FastServerViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: FastServerViewHolder, position: Int) {
+        val item = items[position]
+
+        holder.serverName.text = item.label
+        holder.serverPing.text = item.pingText
+
+        if (item.isAllServers) {
+            holder.serverPing.setTextColor(0xFFEAF1FF.toInt())
+        } else {
+            holder.serverPing.setTextColor(0xFF57E389.toInt())
+        }
+
+        holder.itemView.alpha = 0.96f
+
+        holder.itemView.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate()
+                    .scaleX(1.08f)
+                    .scaleY(1.08f)
+                    .alpha(1f)
+                    .setDuration(120)
+                    .start()
+
+                if (position == 0) {
+                    onFirstItemReady(v)
+                }
+            } else {
+                v.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(0.96f)
+                    .setDuration(120)
+                    .start()
+            }
+        }
+
+        holder.itemView.setOnClickListener {
+            onServerClick(item)
+        }
+
+        holder.itemView.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                if (position == 0) {
+                    drawerLayout.openDrawer(GravityCompat.START)
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+
+        if (position == 0) {
+            holder.itemView.post {
+                onFirstItemReady(holder.itemView)
+            }
+        }
+    }
+
+    override fun getItemCount(): Int = items.size
+}
