@@ -38,3 +38,4 @@ dependencies {
 ## Translating
 
 Please help us translate the app into several languages on [our translation platform](https://crowdin.com/project/WireGuard).
+# aiovpn-wireguard
