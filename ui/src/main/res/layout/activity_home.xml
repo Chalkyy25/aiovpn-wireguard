@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/homeDrawer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -75,7 +76,7 @@
                     android:layout_gravity="center"
                     android:alpha="0"
                     android:src="@drawable/button_glow_blue"
-                    android:scaleType="centerInside"/>
+                    android:scaleType="centerInside" />
 
                 <!-- GLASS BUTTON SHELL -->
                 <ImageView
@@ -95,7 +96,7 @@
                     android:layout_height="82dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_power"
-                    android:tint="#D9DDE4" />
+                    app:tint="#D9DDE4" />
 
             </FrameLayout>
 

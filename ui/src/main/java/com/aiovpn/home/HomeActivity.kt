@@ -398,16 +398,6 @@ class HomeActivity : AppCompatActivity() {
     private fun setVpnState(state: VpnUiState) {
         currentVpnState = state
 
-        val strokeWidthPx = (3 * resources.displayMetrics.density).toInt()
-
-        val strokeColor = when (state) {
-            VpnUiState.DISCONNECTED -> 0x33FFFFFF.toInt()
-            VpnUiState.CONNECTING -> 0xFFB44CFF.toInt()
-            VpnUiState.CONNECTED -> 0xFF4F7BFF.toInt()
-        }
-
-        connectButtonStroke?.setStroke(strokeWidthPx, strokeColor)
-
         when (state) {
             VpnUiState.DISCONNECTED -> {
                 buttonGlowView.alpha = 0f
