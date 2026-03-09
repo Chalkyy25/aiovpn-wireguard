@@ -8,16 +8,18 @@
     android:clipToPadding="false">
 
     <!-- MAIN CONTENT -->
-    <FrameLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipChildren="false"
-        android:clipToPadding="false">
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/homeContent"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:gravity="center_horizontal"
@@ -40,33 +42,61 @@
             <!-- HERO CONNECT STACK -->
             <FrameLayout
                 android:id="@+id/connectHero"
-                android:layout_width="280dp"
-                android:layout_height="280dp"
+                android:layout_width="320dp"
+                android:layout_height="320dp"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="8dp"
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
+                <!-- ICON GLOW -->
                 <ImageView
                     android:id="@+id/glowView"
-                    android:layout_width="236dp"
-                    android:layout_height="236dp"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
                     android:layout_gravity="center"
                     android:alpha="0"
                     android:scaleType="fitCenter"
                     android:src="@drawable/glow_blue" />
 
+                <!-- FOCUS RING / OUTER HALO -->
+                <View
+                    android:id="@+id/connectFocusRing"
+                    android:layout_width="214dp"
+                    android:layout_height="214dp"
+                    android:layout_gravity="center"
+                    android:alpha="0"
+                    android:background="@drawable/connect_focus_ring" />
+
+                <ImageView
+                    android:id="@+id/buttonGlowView"
+                    android:layout_width="240dp"
+                    android:layout_height="240dp"
+                    android:layout_gravity="center"
+                    android:alpha="0"
+                    android:src="@drawable/button_glow_blue"
+                    android:scaleType="centerInside"/>
+
+                <!-- GLASS BUTTON SHELL -->
                 <ImageView
                     android:id="@+id/connectButton"
                     android:layout_width="196dp"
                     android:layout_height="196dp"
                     android:layout_gravity="center"
                     android:background="@drawable/button_glass"
+                    android:clickable="true"
                     android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:padding="48dp"
+                    android:focusableInTouchMode="true" />
+
+                <!-- POWER ICON -->
+                <ImageView
+                    android:id="@+id/powerIcon"
+                    android:layout_width="82dp"
+                    android:layout_height="82dp"
+                    android:layout_gravity="center"
                     android:src="@drawable/ic_power"
                     android:tint="#D9DDE4" />
+
             </FrameLayout>
 
             <TextView
@@ -120,7 +150,7 @@
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/fastestServersRecycler"
                     android:layout_width="match_parent"
-                    android:layout_height="140dp"
+                    android:layout_height="180dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
                     android:overScrollMode="never"
@@ -131,7 +161,7 @@
                     android:scrollbars="none" />
             </LinearLayout>
         </LinearLayout>
-    </FrameLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- LEFT DRAWER -->
     <LinearLayout

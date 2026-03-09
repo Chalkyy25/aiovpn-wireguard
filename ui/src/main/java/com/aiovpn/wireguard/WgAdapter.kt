@@ -29,14 +29,24 @@ object WgAdapter {
             manager.create(tunnelName, config)
         }
 
-        // Disconnect any other UP tunnels
+        // Disconnect any other UP/Connecting tunnels
         for (t in tunnels) {
-            if (t.name != tunnelName && t.state == Tunnel.State.UP) {
+            if (t.name != tunnelName && t.state != Tunnel.State.DOWN) {
                 manager.setTunnelState(t, Tunnel.State.DOWN)
             }
         }
 
         // Connect selected tunnel
         manager.setTunnelState(tunnel, Tunnel.State.UP)
+    }
+
+    suspend fun disconnect() = withContext(Dispatchers.IO) {
+        val manager = Application.getTunnelManager()
+        val tunnels = manager.getTunnels()
+        for (t in tunnels) {
+            if (t.state != Tunnel.State.DOWN) {
+                manager.setTunnelState(t, Tunnel.State.DOWN)
+            }
+        }
     }
 }

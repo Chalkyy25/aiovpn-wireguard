@@ -1,6 +1,5 @@
 package com.aiovpn.home
 
-import android.content.Intent
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -9,14 +8,12 @@ import android.widget.TextView
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.RecyclerView
-import com.aiovpn.login.ServerListActivity
 import com.wireguard.android.R
 
 class FastServerAdapter(
-    private val items: List<FastServerItem>,
+    private var items: List<FastServerItem>,
     private val drawerLayout: DrawerLayout,
-    private val onServerClick: (FastServerItem) -> Unit,
-    private val onFirstItemReady: (View) -> Unit
+    private val onServerClick: (FastServerItem) -> Unit
 ) : RecyclerView.Adapter<FastServerAdapter.FastServerViewHolder>() {
 
     inner class FastServerViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -36,11 +33,9 @@ class FastServerAdapter(
         holder.serverName.text = item.label
         holder.serverPing.text = item.pingText
 
-        if (item.isAllServers) {
-            holder.serverPing.setTextColor(0xFFEAF1FF.toInt())
-        } else {
-            holder.serverPing.setTextColor(0xFF57E389.toInt())
-        }
+        holder.serverPing.setTextColor(
+            if (item.isAllServers) 0xFFEAF1FF.toInt() else 0xFF57E389.toInt()
+        )
 
         holder.itemView.alpha = 0.96f
 
@@ -52,10 +47,6 @@ class FastServerAdapter(
                     .alpha(1f)
                     .setDuration(120)
                     .start()
-
-                if (position == 0) {
-                    onFirstItemReady(v)
-                }
             } else {
                 v.animate()
                     .scaleX(1f)
@@ -71,24 +62,25 @@ class FastServerAdapter(
         }
 
         holder.itemView.setOnKeyListener { _, keyCode, event ->
-            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (position == 0) {
-                    drawerLayout.openDrawer(GravityCompat.START)
-                    true
-                } else {
-                    false
-                }
+            if (event.action != KeyEvent.ACTION_DOWN) {
+                return@setOnKeyListener false
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && position == 0) {
+                drawerLayout.openDrawer(GravityCompat.START)
+                true
             } else {
                 false
-            }
-        }
-
-        if (position == 0) {
-            holder.itemView.post {
-                onFirstItemReady(holder.itemView)
             }
         }
     }
 
     override fun getItemCount(): Int = items.size
+
+    fun getItems(): List<FastServerItem> = items
+
+    fun updateItems(newItems: List<FastServerItem>) {
+        this.items = newItems
+        notifyDataSetChanged()
+    }
 }
