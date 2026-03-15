@@ -7,33 +7,34 @@ import com.aiovpn.auth.TokenStore
 
 class VpnRepository(context: Context) {
 
-    private val appContext = context.applicationContext
+    private val tokenStore = TokenStore(context.applicationContext)
     private val api = AioApi()
-    private val tokens = TokenStore(appContext)
 
-    suspend fun getToken(): String? = tokens.getToken()
+    suspend fun getToken(): String? = tokenStore.getToken()
 
     suspend fun hasToken(): Boolean = !getToken().isNullOrBlank()
 
     private suspend fun requireToken(): String {
-        return getToken() ?: throw IllegalStateException("No token (user not logged in)")
+        return getToken()?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("No token (user not logged in)")
     }
 
     suspend fun login(username: String, password: String) {
-        val res = api.login(username.trim(), password)
-        tokens.saveToken(res.token)
+        val response = api.login(username.trim(), password)
+        tokenStore.saveToken(response.token)
     }
 
     suspend fun servers(): List<ServerDto> {
-        return api.servers(requireToken())
+        val token = requireToken()
+        return api.servers(token)
     }
 
     suspend fun wgConfig(serverId: Int): String {
-        return api.wgConfig(requireToken(), serverId)
+        val token = requireToken()
+        return api.wgConfig(token, serverId)
     }
 
     suspend fun logout() {
-        // Later: call POST /api/auth/logout as well (revoke token server-side).
-        tokens.clear()
+        tokenStore.clear()
     }
 }
