@@ -5,21 +5,21 @@
     android:layout_margin="8dp"
     android:background="@drawable/fast_server_card_selector"
     android:clickable="true"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:clipChildren="false"
-    android:clipToPadding="false">
+    android:padding="16dp">
 
     <TextView
         android:id="@+id/serverName"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"
-        android:ellipsize="end"
         android:text="Germany"
         android:textColor="#EAF1FF"
         android:textSize="18sp"
@@ -27,21 +27,22 @@
 
     <TextView
         android:id="@+id/serverLocation"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"
-        android:ellipsize="end"
         android:text="Frankfurt"
         android:textColor="#8AA1C5"
         android:textSize="14sp" />
 
     <TextView
         android:id="@+id/serverPing"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:gravity="center"
         android:text="23 ms"
         android:textColor="#57E389"
         android:textSize="16sp"
