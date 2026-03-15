@@ -3,15 +3,16 @@ package com.aiovpn.login
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.aiovpn.api.ServerDto
 import com.aiovpn.home.HomeActivity
 import com.aiovpn.repo.VpnRepository
 import com.aiovpn.util.PingUtil
@@ -26,14 +27,15 @@ class ServerListActivity : AppCompatActivity() {
     private lateinit var repo: VpnRepository
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ServerAdapter
-    private var uiItems = mutableListOf<ServerUiItem>()
+
+    private val uiItems = mutableListOf<ServerUiItem>()
 
     private lateinit var navHomeContainer: View
     private lateinit var navServersContainer: View
     private lateinit var navAccountContainer: View
     private lateinit var navSettingsContainer: View
     private lateinit var sideNav: View
-    
+
     private lateinit var navTexts: List<View>
     private var isExpanded = false
 
@@ -43,13 +45,13 @@ class ServerListActivity : AppCompatActivity() {
 
         repo = VpnRepository(this)
         recyclerView = findViewById(R.id.aioServerList)
-        
+
         sideNav = findViewById(R.id.sideNav)
         navHomeContainer = findViewById(R.id.navHomeContainer)
         navServersContainer = findViewById(R.id.navServersContainer)
         navAccountContainer = findViewById(R.id.navAccountContainer)
         navSettingsContainer = findViewById(R.id.navSettingsContainer)
-        
+
         navTexts = listOf(
             findViewById(R.id.navHome),
             findViewById(R.id.navServers),
@@ -60,16 +62,17 @@ class ServerListActivity : AppCompatActivity() {
         setupRecyclerView()
         bindNavigation()
         loadServers()
-        
-        // Initial focus
+
         recyclerView.post {
             recyclerView.requestFocus()
         }
     }
 
     private fun setupRecyclerView() {
-        // Using a 3-column grid for better TV flow
         recyclerView.layoutManager = GridLayoutManager(this, 3)
+        recyclerView.clipToPadding = false
+        recyclerView.clipChildren = false
+
         adapter = ServerAdapter(
             items = emptyList(),
             onMoveToSidebar = {
@@ -78,30 +81,38 @@ class ServerListActivity : AppCompatActivity() {
         ) { server ->
             connectToServer(server)
         }
+
         recyclerView.adapter = adapter
-        
-        recyclerView.clipToPadding = false
-        recyclerView.clipChildren = false
     }
 
     private fun bindNavigation() {
-        val navContainers = listOf(navHomeContainer, navServersContainer, navAccountContainer, navSettingsContainer)
-        
-        // Highlight Servers as the current active page
+        val navContainers = listOf(
+            navHomeContainer,
+            navServersContainer,
+            navAccountContainer,
+            navSettingsContainer
+        )
+
         navServersContainer.isSelected = true
 
         navContainers.forEach { container ->
-            container.setOnFocusChangeListener { v, hasFocus ->
+            container.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
-                    // Hide the persistent "current page" highlight while focus is inside the sidebar
                     navContainers.forEach { it.isSelected = false }
-                    
                     toggleSidebar(true)
-                    v.animate().scaleX(1.03f).scaleY(1.03f).setDuration(120).start()
+                    view.animate()
+                        .scaleX(1.03f)
+                        .scaleY(1.03f)
+                        .setDuration(120)
+                        .start()
                 } else {
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-                    v.postDelayed({
-                        // If focus has completely left the sidebar, restore the "Servers" page highlight and collapse
+                    view.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(120)
+                        .start()
+
+                    view.postDelayed({
                         if (navContainers.none { it.hasFocus() }) {
                             navServersContainer.isSelected = true
                             toggleSidebar(false)
@@ -118,20 +129,23 @@ class ServerListActivity : AppCompatActivity() {
                     false
                 }
             }
-            
+
             container.setOnClickListener {
                 when (container.id) {
                     R.id.navHomeContainer -> {
                         startActivity(Intent(this, HomeActivity::class.java))
                         finish()
                     }
+
                     R.id.navServersContainer -> {
-                        // Already here
+                        // Already on this screen
                     }
+
                     R.id.navAccountContainer -> {
                         startActivity(Intent(this, com.aiovpn.home.AccountActivity::class.java))
                         finish()
                     }
+
                     R.id.navSettingsContainer -> {
                         startActivity(Intent(this, com.aiovpn.home.SettingsActivity::class.java))
                         finish()
@@ -154,65 +168,110 @@ class ServerListActivity : AppCompatActivity() {
             params.width = animator.animatedValue as Int
             sideNav.layoutParams = params
         }
-        
         widthAnimator.duration = 250
         widthAnimator.interpolator = AccelerateDecelerateInterpolator()
         widthAnimator.start()
 
         navTexts.forEach { text ->
-            text.animate().alpha(targetAlpha).setDuration(200).start()
+            text.animate()
+                .alpha(targetAlpha)
+                .setDuration(200)
+                .start()
         }
     }
-
-    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun loadServers() {
         lifecycleScope.launch {
             try {
-                val servers = withContext(Dispatchers.IO) { repo.servers() }
-                
-                uiItems = servers.map { ServerUiItem(it) }.toMutableList()
-                adapter.updateItems(uiItems)
+                val servers = withContext(Dispatchers.IO) {
+                    repo.servers()
+                }
 
-                // Async ping measurement
+                Log.d(TAG, "Loaded servers count=${servers.size}")
+                servers.forEach { server ->
+                    Log.d(
+                        TAG,
+                        "Server loaded: id=${server.id}, label=${server.label}, endpoint=${server.endpoint}"
+                    )
+                }
+
+                uiItems.clear()
+                uiItems.addAll(servers.map { ServerUiItem(it) })
+                adapter.updateItems(uiItems.toList())
+
                 uiItems.forEachIndexed { index, item ->
                     launch(Dispatchers.IO) {
-                        val ping = try { PingUtil.measurePing(item.server.endpoint ?: "") } catch (e: Exception) { -1 }
+                        val pingText = measurePingText(item.server)
+
                         withContext(Dispatchers.Main) {
-                            if (index < uiItems.size) {
-                                uiItems[index] = uiItems[index].copy(pingText = if (ping > 0) "${ping} ms" else "-- ms")
+                            if (index in uiItems.indices) {
+                                uiItems[index] = uiItems[index].copy(pingText = pingText)
                                 adapter.updateItems(uiItems.toList())
                             }
                         }
                     }
                 }
-
             } catch (e: Exception) {
-                Toast.makeText(this@ServerListActivity, "Failed to load servers", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Failed to load servers", e)
+                Toast.makeText(
+                    this@ServerListActivity,
+                    "Failed to load servers: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
 
-    private fun connectToServer(server: com.aiovpn.api.ServerDto) {
+    private suspend fun measurePingText(server: ServerDto): String {
+        return try {
+            val host = server.endpoint.substringBefore(":").ifBlank { server.endpoint }
+            val ping = PingUtil.measurePing(host)
+            if (ping > 0) "$ping ms" else "-- ms"
+        } catch (e: Exception) {
+            Log.e(TAG, "Ping failed for server id=${server.id}, label=${server.label}", e)
+            "-- ms"
+        }
+    }
+
+    private fun connectToServer(server: ServerDto) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                Log.d(TAG, "Connecting to server id=${server.id}, label=${server.label}")
+
                 val config = repo.wgConfig(server.id)
-                val label = server.label ?: "Unknown Server"
+                val label = server.label ?: server.name ?: "Unknown Server"
+
+                Log.d(TAG, "WireGuard config loaded for server id=${server.id}")
+
                 WgAdapter.connect(server.id, label, config)
+
                 withContext(Dispatchers.Main) {
-                    val intent = Intent(this@ServerListActivity, HomeActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    // PASS THE SELECTION DATA
-                    intent.putExtra("server_id", server.id)
-                    intent.putExtra("server_label", label)
+                    val intent = Intent(this@ServerListActivity, HomeActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        putExtra("server_id", server.id)
+                        putExtra("server_label", label)
+                    }
                     startActivity(intent)
                     finish()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Connection failed for server id=${server.id}", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ServerListActivity, "Connection failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this@ServerListActivity,
+                        "Connection failed: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
+    }
+
+    private fun Int.toPx(): Int {
+        return (this * resources.displayMetrics.density).toInt()
+    }
+
+    companion object {
+        private const val TAG = "ServerListActivity"
     }
 }
