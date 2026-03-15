@@ -1,8 +1,3 @@
-/*
- * Copyright © 2017-2026 WireGuard LLC. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package com.aiovpn.login
 
 import android.view.KeyEvent
@@ -16,7 +11,7 @@ import com.wireguard.android.R
 
 data class ServerUiItem(
     val server: ServerDto,
-    var pingText: String = "... ms"
+    val pingText: String = "... ms"
 )
 
 class ServerAdapter(
@@ -40,38 +35,37 @@ class ServerAdapter(
     override fun onBindViewHolder(holder: ServerViewHolder, position: Int) {
         val item = items[position]
         val server = item.server
-        
-        holder.serverName.text = server.label
-        holder.serverLocation.text = "Region: ${server.id}"
+
+        holder.serverName.text = server.label ?: server.name ?: "Unknown Server"
+        holder.serverLocation.text = buildLocationText(server)
         holder.serverPing.text = item.pingText
 
         holder.itemView.setOnClickListener {
             onServerClick(server)
         }
 
-        holder.itemView.setOnFocusChangeListener { v, hasFocus ->
+        holder.itemView.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
-                v.animate()
+                view.animate()
                     .scaleX(1.03f)
                     .scaleY(1.03f)
                     .translationZ(8f)
                     .setDuration(150)
                     .start()
-                v.isSelected = true
+                view.isSelected = true
             } else {
-                v.animate()
+                view.animate()
                     .scaleX(1f)
                     .scaleY(1f)
                     .translationZ(0f)
                     .setDuration(150)
                     .start()
-                v.isSelected = false
+                view.isSelected = false
             }
         }
 
         holder.itemView.setOnKeyListener { _, keyCode, event ->
             if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                // Only move focus to sidebar if we are in the first column (index 0, 3, 6...)
                 if (position % 3 == 0) {
                     onMoveToSidebar()
                     true
@@ -87,7 +81,21 @@ class ServerAdapter(
     override fun getItemCount(): Int = items.size
 
     fun updateItems(newItems: List<ServerUiItem>) {
-        this.items = newItems
+        items = newItems
         notifyDataSetChanged()
+    }
+
+    private fun buildLocationText(server: ServerDto): String {
+        val city = server.city?.takeIf { it.isNotBlank() }
+        val country = server.country?.takeIf { it.isNotBlank() }
+        val name = server.name?.takeIf { it.isNotBlank() }
+
+        return when {
+            city != null && country != null -> "$city, $country"
+            city != null -> city
+            country != null -> country
+            name != null -> name
+            else -> "Location unavailable"
+        }
     }
 }
