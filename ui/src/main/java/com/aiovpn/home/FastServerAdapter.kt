@@ -5,14 +5,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.wireguard.android.R
 
 class FastServerAdapter(
     private var items: List<FastServerItem>,
-    private val drawerLayout: DrawerLayout,
+    private val onMoveToSidebar: () -> Unit,
     private val onServerClick: (FastServerItem) -> Unit
 ) : RecyclerView.Adapter<FastServerAdapter.FastServerViewHolder>() {
 
@@ -67,7 +65,7 @@ class FastServerAdapter(
             }
 
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && position == 0) {
-                drawerLayout.openDrawer(GravityCompat.START)
+                onMoveToSidebar()
                 true
             } else {
                 false

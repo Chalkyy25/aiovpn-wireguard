@@ -22,8 +22,8 @@ class AioApi(
         .add(KotlinJsonAdapterFactory())
         .build()
 
-    private val loginAdapter = moshi.adapter(LoginResponse::class.java)
-    private val serversAdapter = moshi.adapter(ServersResponse::class.java)
+    private val loginAdapter by lazy { moshi.adapter(LoginResponse::class.java) }
+    private val serversAdapter by lazy { moshi.adapter(ServersResponse::class.java) }
 
     @Throws(IOException::class)
     fun login(username: String, password: String): LoginResponse {
@@ -57,7 +57,14 @@ class AioApi(
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) throw IOException("Servers failed ${res.code}: $raw")
-            val parsed = serversAdapter.fromJson(raw) ?: throw IOException("Bad JSON: $raw")
+
+            val parsed = try {
+                serversAdapter.fromJson(raw)
+            } catch (e: Exception) {
+                throw IOException("Parsing failed: ${e.message}", e)
+            } ?: throw IOException("Empty response body")
+
+            // Return all servers returned by the API without filtering
             return parsed.data
         }
     }
@@ -66,7 +73,7 @@ class AioApi(
     fun wgConfig(token: String, serverId: Int): String {
         val req = Request.Builder()
             .url("$baseUrl/api/wg/config?server_id=$serverId")
-            .header("Accept", "*/*")
+            .header("Accept", "application/json")
             .header("Authorization", "Bearer $token")
             .get()
             .build()
@@ -81,7 +88,14 @@ class AioApi(
 
 @JsonClass(generateAdapter = true)
 data class LoginResponse(
-    val token: String
+    val token: String,
+    val user: UserDto? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class UserDto(
+    val id: Int,
+    val username: String
 )
 
 @JsonClass(generateAdapter = true)
@@ -93,7 +107,9 @@ data class ServersResponse(
 data class ServerDto(
     val id: Int,
     val name: String? = null,
-    val label: String,
-    val endpoint: String,
-    val port: Int
+    val label: String? = null,
+    val endpoint: String? = null,
+    val port: Int? = null,
+    val country: String? = null,
+    val city: String? = null
 )

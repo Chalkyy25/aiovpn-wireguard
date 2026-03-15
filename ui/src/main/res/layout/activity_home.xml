@@ -8,222 +8,327 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- MAIN CONTENT -->
-    <androidx.core.widget.NestedScrollView
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipChildren="false"
-        android:clipToPadding="false"
-        android:fillViewport="true"
-        android:scrollbars="none">
+        android:clipToPadding="false">
 
-        <LinearLayout
-            android:id="@+id/homeContent"
+        <!-- MAIN CONTENT AREA -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/mainContentWrapper"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="84dp"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingLeft="48dp"
-            android:paddingTop="36dp"
-            android:paddingRight="48dp"
-            android:paddingBottom="28dp">
+            android:fillViewport="true"
+            android:scrollbars="none">
 
-            <TextView
-                android:id="@+id/homeTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="14dp"
-                android:text="AIO VPN"
-                android:textColor="#EAF1FF"
-                android:textSize="28sp"
-                android:textStyle="bold" />
-
-            <!-- HERO CONNECT STACK -->
-            <FrameLayout
-                android:id="@+id/connectHero"
-                android:layout_width="320dp"
-                android:layout_height="320dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
-                android:clipChildren="false"
-                android:clipToPadding="false">
-
-                <!-- ICON GLOW -->
-                <ImageView
-                    android:id="@+id/glowView"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:layout_gravity="center"
-                    android:alpha="0"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/glow_blue" />
-
-                <!-- FOCUS RING / OUTER HALO -->
-                <View
-                    android:id="@+id/connectFocusRing"
-                    android:layout_width="214dp"
-                    android:layout_height="214dp"
-                    android:layout_gravity="center"
-                    android:alpha="0"
-                    android:background="@drawable/connect_focus_ring" />
-
-                <ImageView
-                    android:id="@+id/buttonGlowView"
-                    android:layout_width="240dp"
-                    android:layout_height="240dp"
-                    android:layout_gravity="center"
-                    android:alpha="0"
-                    android:src="@drawable/button_glow_blue"
-                    android:scaleType="centerInside" />
-
-                <!-- GLASS BUTTON SHELL -->
-                <ImageView
-                    android:id="@+id/connectButton"
-                    android:layout_width="196dp"
-                    android:layout_height="196dp"
-                    android:layout_gravity="center"
-                    android:background="@drawable/button_glass"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true" />
-
-                <!-- POWER ICON -->
-                <ImageView
-                    android:id="@+id/powerIcon"
-                    android:layout_width="82dp"
-                    android:layout_height="82dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_power"
-                    app:tint="#D9DDE4" />
-
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/statusPill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="-6dp"
-                android:background="@drawable/pill_disconnected"
-                android:paddingLeft="28dp"
-                android:paddingTop="10dp"
-                android:paddingRight="28dp"
-                android:paddingBottom="10dp"
-                android:text="Disconnected"
-                android:textColor="#E6EBF5"
-                android:textSize="20sp" />
-
-            <TextView
-                android:id="@+id/selectedServerText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="No server selected"
-                android:textColor="#C9D4E8"
-                android:textSize="18sp" />
-
-            <Space
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <!-- FASTEST SERVERS SECTION -->
             <LinearLayout
-                android:id="@+id/fastestSection"
+                android:id="@+id/homeContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="18dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
-                android:orientation="vertical">
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingLeft="32dp"
+                android:paddingTop="32dp"
+                android:paddingRight="48dp"
+                android:paddingBottom="28dp">
 
                 <TextView
-                    android:id="@+id/fastestTitle"
+                    android:id="@+id/homeTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="14dp"
-                    android:text="Fastest Servers"
+                    android:text="AIO VPN"
                     android:textColor="#EAF1FF"
-                    android:textSize="18sp"
+                    android:textSize="28sp"
                     android:textStyle="bold" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/fastestServersRecycler"
+                <!-- HERO CONNECT STACK -->
+                <FrameLayout
+                    android:id="@+id/connectHero"
+                    android:layout_width="320dp"
+                    android:layout_height="320dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+
+                    <ImageView
+                        android:id="@+id/glowView"
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:layout_gravity="center"
+                        android:alpha="0"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/glow_blue" />
+
+                    <View
+                        android:id="@+id/connectFocusRing"
+                        android:layout_width="214dp"
+                        android:layout_height="214dp"
+                        android:layout_gravity="center"
+                        android:alpha="0"
+                        android:background="@drawable/connect_focus_ring" />
+
+                    <ImageView
+                        android:id="@+id/buttonGlowView"
+                        android:layout_width="260dp"
+                        android:layout_height="260dp"
+                        android:layout_gravity="center"
+                        android:alpha="0"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/button_glow_blue" />
+
+                    <ImageView
+                        android:id="@+id/connectButton"
+                        android:layout_width="196dp"
+                        android:layout_height="196dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/button_glass"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true" />
+
+                    <ImageView
+                        android:id="@+id/powerIcon"
+                        android:layout_width="82dp"
+                        android:layout_height="82dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_power"
+                        app:tint="#D9DDE4" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/statusPill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-6dp"
+                    android:background="@drawable/pill_disconnected"
+                    android:paddingLeft="28dp"
+                    android:paddingTop="10dp"
+                    android:paddingRight="28dp"
+                    android:paddingBottom="10dp"
+                    android:text="Disconnected"
+                    android:textColor="#E6EBF5"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/selectedServerText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="No server selected"
+                    android:textColor="#C9D4E8"
+                    android:textSize="18sp" />
+
+                <Space
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <LinearLayout
+                    android:id="@+id/fastestSection"
                     android:layout_width="match_parent"
-                    android:layout_height="180dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="18dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
-                    android:overScrollMode="never"
-                    android:paddingLeft="8dp"
-                    android:paddingTop="12dp"
-                    android:paddingRight="8dp"
-                    android:paddingBottom="32dp"
-                    android:scrollbars="none" />
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/fastestTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        android:text="Fastest Servers"
+                        android:textColor="#EAF1FF"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/fastestServersRecycler"
+                        android:layout_width="match_parent"
+                        android:layout_height="180dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:overScrollMode="never"
+                        android:paddingLeft="20dp"
+                        android:paddingTop="12dp"
+                        android:paddingRight="20dp"
+                        android:paddingBottom="32dp"
+                        android:scrollbars="none" />
+                </LinearLayout>
             </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <!-- UNIFIED PERSISTENT SIDEBAR -->
+        <LinearLayout
+            android:id="@+id/sideNav"
+            android:layout_width="84dp"
+            android:layout_height="match_parent"
+            android:background="#EE111620"
+            android:orientation="vertical"
+            android:paddingTop="32dp"
+            android:paddingBottom="24dp"
+            android:elevation="12dp"
+            android:clipChildren="true"
+            android:clipToPadding="true">
+
+            <ImageView
+                android:id="@+id/navLogo"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:layout_marginLeft="12dp"
+                android:layout_marginBottom="32dp"
+                android:src="@drawable/aio_nav_logo"
+                android:contentDescription="AIO VPN"/>
+
+            <!-- Home Container -->
+            <LinearLayout
+                android:id="@+id/navHomeContainer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginLeft="14dp"
+                android:layout_marginRight="14dp"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="@drawable/nav_item_selector">
+
+                <ImageView
+                    android:id="@+id/railHome"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_nav_home"
+                    app:tint="#EAF1FF"
+                    android:duplicateParentState="true" />
+
+                <TextView
+                    android:id="@+id/navHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="16dp"
+                    android:text="Home"
+                    android:textColor="#EAF1FF"
+                    android:textSize="20sp"
+                    android:alpha="0"
+                    android:duplicateParentState="true" />
+            </LinearLayout>
+
+            <!-- Servers Container -->
+            <LinearLayout
+                android:id="@+id/navServersContainer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginLeft="14dp"
+                android:layout_marginRight="14dp"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="@drawable/nav_item_selector">
+
+                <ImageView
+                    android:id="@+id/railServers"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_nav_servers"
+                    app:tint="#EAF1FF"
+                    android:duplicateParentState="true" />
+
+                <TextView
+                    android:id="@+id/navServers"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="16dp"
+                    android:text="Servers"
+                    android:textColor="#EAF1FF"
+                    android:textSize="20sp"
+                    android:alpha="0"
+                    android:duplicateParentState="true" />
+            </LinearLayout>
+
+            <!-- Account Container -->
+            <LinearLayout
+                android:id="@+id/navAccountContainer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginLeft="14dp"
+                android:layout_marginRight="14dp"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="@drawable/nav_item_selector">
+
+                <ImageView
+                    android:id="@+id/railAccount"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_nav_account"
+                    app:tint="#EAF1FF"
+                    android:duplicateParentState="true" />
+
+                <TextView
+                    android:id="@+id/navAccount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="16dp"
+                    android:text="Account"
+                    android:textColor="#EAF1FF"
+                    android:textSize="20sp"
+                    android:alpha="0"
+                    android:duplicateParentState="true" />
+            </LinearLayout>
+
+            <!-- Settings Container -->
+            <LinearLayout
+                android:id="@+id/navSettingsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginLeft="14dp"
+                android:layout_marginRight="14dp"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="@drawable/nav_item_selector">
+
+                <ImageView
+                    android:id="@+id/railSettings"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_nav_settings"
+                    app:tint="#EAF1FF"
+                    android:duplicateParentState="true" />
+
+                <TextView
+                    android:id="@+id/navSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="16dp"
+                    android:text="Settings"
+                    android:textColor="#EAF1FF"
+                    android:textSize="20sp"
+                    android:alpha="0"
+                    android:duplicateParentState="true" />
+            </LinearLayout>
+
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
-
-    <!-- LEFT DRAWER -->
-    <LinearLayout
-        android:id="@+id/leftNav"
-        android:layout_width="300dp"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:background="#E6111620"
-        android:orientation="vertical"
-        android:paddingLeft="24dp"
-        android:paddingTop="40dp"
-        android:paddingRight="24dp"
-        android:paddingBottom="24dp">
-
-        <TextView
-            android:id="@+id/navHome"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:text="Home"
-            android:textColor="#EAF1FF"
-            android:textSize="22sp" />
-
-        <TextView
-            android:id="@+id/navServers"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:text="Servers"
-            android:textColor="#EAF1FF"
-            android:textSize="22sp" />
-
-        <TextView
-            android:id="@+id/navAccount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:text="Account"
-            android:textColor="#EAF1FF"
-            android:textSize="22sp" />
-
-        <TextView
-            android:id="@+id/navSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:text="Settings"
-            android:textColor="#EAF1FF"
-            android:textSize="22sp" />
-    </LinearLayout>
+    </FrameLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>

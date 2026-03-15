@@ -5,6 +5,7 @@
 
 package com.aiovpn.login
 
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +21,7 @@ data class ServerUiItem(
 
 class ServerAdapter(
     private var items: List<ServerUiItem>,
+    private val onMoveToSidebar: () -> Unit,
     private val onServerClick: (ServerDto) -> Unit
 ) : RecyclerView.Adapter<ServerAdapter.ServerViewHolder>() {
 
@@ -49,9 +51,35 @@ class ServerAdapter(
 
         holder.itemView.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
-                v.animate().scaleX(1.02f).scaleY(1.02f).setDuration(100).start()
+                v.animate()
+                    .scaleX(1.03f)
+                    .scaleY(1.03f)
+                    .translationZ(8f)
+                    .setDuration(150)
+                    .start()
+                v.isSelected = true
             } else {
-                v.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+                v.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .translationZ(0f)
+                    .setDuration(150)
+                    .start()
+                v.isSelected = false
+            }
+        }
+
+        holder.itemView.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                // Only move focus to sidebar if we are in the first column (index 0, 3, 6...)
+                if (position % 3 == 0) {
+                    onMoveToSidebar()
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
             }
         }
     }

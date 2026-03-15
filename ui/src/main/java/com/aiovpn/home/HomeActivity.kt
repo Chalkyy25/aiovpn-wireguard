@@ -1,5 +1,6 @@
 package com.aiovpn.home
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -9,11 +10,11 @@ import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.GravityCompat
 import androidx.databinding.Observable
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
@@ -47,10 +48,14 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var selectedServerText: TextView
     private lateinit var fastestServersRecycler: RecyclerView
 
-    private lateinit var navHome: TextView
-    private lateinit var navServers: TextView
-    private lateinit var navAccount: TextView
-    private lateinit var navSettings: TextView
+    private lateinit var sideNav: View
+    private lateinit var navHomeContainer: View
+    private lateinit var navServersContainer: View
+    private lateinit var navAccountContainer: View
+    private lateinit var navSettingsContainer: View
+    
+    private lateinit var navTexts: List<View>
+    private var isExpanded = false
 
     private var currentVpnState: VpnUiState = VpnUiState.DISCONNECTED
     private var selectedServerId: Int? = null
@@ -58,6 +63,9 @@ class HomeActivity : AppCompatActivity() {
 
     private var tunnelCallback: Observable.OnPropertyChangedCallback? = null
     private var connectButtonStroke: GradientDrawable? = null
+    
+    private var pulseAnimatorX: android.animation.ObjectAnimator? = null
+    private var pulseAnimatorY: android.animation.ObjectAnimator? = null
 
     enum class VpnUiState {
         DISCONNECTED,
@@ -81,25 +89,51 @@ class HomeActivity : AppCompatActivity() {
         selectedServerText = findViewById(R.id.selectedServerText)
         fastestServersRecycler = findViewById(R.id.fastestServersRecycler)
 
-        navHome = findViewById(R.id.navHome)
-        navServers = findViewById(R.id.navServers)
-        navAccount = findViewById(R.id.navAccount)
-        navSettings = findViewById(R.id.navSettings)
+        sideNav = findViewById(R.id.sideNav)
+        navHomeContainer = findViewById(R.id.navHomeContainer)
+        navServersContainer = findViewById(R.id.navServersContainer)
+        navAccountContainer = findViewById(R.id.navAccountContainer)
+        navSettingsContainer = findViewById(R.id.navSettingsContainer)
+        
+        navTexts = listOf(
+            findViewById(R.id.navHome),
+            findViewById(R.id.navServers),
+            findViewById(R.id.navAccount),
+            findViewById(R.id.navSettings)
+        )
 
         connectButtonStroke = connectButton.background?.mutate() as? GradientDrawable
 
         setupRecycler()
         bindNavigation()
         bindConnectButton()
-
+        
         setVpnState(VpnUiState.DISCONNECTED)
         selectedServerText.text = "No server selected"
 
+        handleIntent(intent)
         loadFastestServers()
         observeTunnelState()
 
         connectButton.post {
             connectButton.requestFocus()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val serverId = intent?.getIntExtra("server_id", -1)?.takeIf { it != -1 }
+        val serverLabel = intent?.getStringExtra("server_label")
+
+        if (serverId != null && serverLabel != null) {
+            selectedServerId = serverId
+            selectedServerLabel = serverLabel
+            selectedServerText.text = serverLabel
         }
     }
 
@@ -110,6 +144,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopPulseAnimation()
         tunnelCallback?.let { callback ->
             try {
                 Application.getTunnelManager().removeOnPropertyChangedCallback(callback)
@@ -160,34 +195,79 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun bindNavigation() {
-        listOf(navHome, navServers, navAccount, navSettings).forEach { item ->
-            item.setOnKeyListener { _, keyCode, event ->
+        val navContainers = listOf(navHomeContainer, navServersContainer, navAccountContainer, navSettingsContainer)
+        
+        navHomeContainer.isSelected = true
+
+        navContainers.forEach { container ->
+            container.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    navContainers.forEach { it.isSelected = false }
+                    toggleSidebar(true)
+                    v.animate().scaleX(1.03f).scaleY(1.03f).setDuration(120).start()
+                } else {
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    v.postDelayed({
+                        if (navContainers.none { it.hasFocus() }) {
+                            navHomeContainer.isSelected = true
+                            toggleSidebar(false)
+                        }
+                    }, 50)
+                }
+            }
+            
+            container.setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    drawerLayout.closeDrawers()
                     connectButton.requestFocus()
                     true
                 } else {
                     false
                 }
             }
-        }
-
-        navHome.setOnClickListener {
-            drawerLayout.closeDrawers()
-        }
-
-        navServers.setOnClickListener {
-            startActivity(Intent(this, ServerListActivity::class.java))
-        }
-
-        navAccount.setOnClickListener {
-            drawerLayout.closeDrawers()
-        }
-
-        navSettings.setOnClickListener {
-            drawerLayout.closeDrawers()
+            
+            container.setOnClickListener {
+                when (container.id) {
+                    R.id.navHomeContainer -> {
+                        // Already here
+                    }
+                    R.id.navServersContainer -> {
+                        startActivity(Intent(this, ServerListActivity::class.java))
+                    }
+                    R.id.navAccountContainer -> {
+                        startActivity(Intent(this, com.aiovpn.home.AccountActivity::class.java))
+                    }
+                    R.id.navSettingsContainer -> {
+                        startActivity(Intent(this, com.aiovpn.home.SettingsActivity::class.java))
+                    }
+                }
+            }
         }
     }
+
+    private fun toggleSidebar(expand: Boolean) {
+        if (isExpanded == expand) return
+        isExpanded = expand
+
+        val targetWidth = if (expand) 240.toPx() else 84.toPx()
+        val targetAlpha = if (expand) 1f else 0f
+
+        val widthAnimator = ValueAnimator.ofInt(sideNav.width, targetWidth)
+        widthAnimator.addUpdateListener { animator ->
+            val params = sideNav.layoutParams
+            params.width = animator.animatedValue as Int
+            sideNav.layoutParams = params
+        }
+        
+        widthAnimator.duration = 250
+        widthAnimator.interpolator = AccelerateDecelerateInterpolator()
+        widthAnimator.start()
+
+        navTexts.forEach { text ->
+            text.animate().alpha(targetAlpha).setDuration(200).start()
+        }
+    }
+
+    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     private fun bindConnectButton() {
         connectButton.setOnFocusChangeListener { v, hasFocus ->
@@ -213,7 +293,7 @@ class HomeActivity : AppCompatActivity() {
 
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    drawerLayout.openDrawer(GravityCompat.START)
+                    navHomeContainer.requestFocus()
                     true
                 }
 
@@ -342,14 +422,16 @@ class HomeActivity : AppCompatActivity() {
                 val servers = withContext(Dispatchers.IO) { repo.servers() }
 
                 val initialItems = servers.take(4).map {
-                    FastServerItem(it.id, it.label, "... ms", false)
+                    FastServerItem(it.id, it.label ?: "", "... ms", false)
                 }.toMutableList().apply {
                     add(FastServerItem(-1, "All Servers", "See more", true))
                 }
 
                 val adapter = FastServerAdapter(
                     items = initialItems,
-                    drawerLayout = drawerLayout,
+                    onMoveToSidebar = {
+                        navHomeContainer.requestFocus()
+                    },
                     onServerClick = { item ->
                         if (item.isAllServers) {
                             startActivity(Intent(this@HomeActivity, ServerListActivity::class.java))
@@ -365,7 +447,7 @@ class HomeActivity : AppCompatActivity() {
                     val pings = servers.map { server ->
                         async {
                             val pingValue = try {
-                                PingUtil.measurePing(server.endpoint)
+                                PingUtil.measurePing(server.endpoint ?: "")
                             } catch (_: Exception) {
                                 -1
                             }
@@ -378,7 +460,7 @@ class HomeActivity : AppCompatActivity() {
                     }.take(4).map { (server, ping) ->
                         FastServerItem(
                             id = server.id,
-                            label = server.label,
+                            label = server.label ?: "Unknown",
                             pingText = if (ping > 0) "$ping ms" else "-- ms",
                             isAllServers = false
                         )
@@ -395,11 +477,42 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun startPulseAnimation() {
+        if (pulseAnimatorX != null) return
+
+        pulseAnimatorX = android.animation.ObjectAnimator.ofFloat(buttonGlowView, View.SCALE_X, 1.0f, 1.03f).apply {
+            duration = 2000
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+
+        pulseAnimatorY = android.animation.ObjectAnimator.ofFloat(buttonGlowView, View.SCALE_Y, 1.0f, 1.03f).apply {
+            duration = 2000
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun stopPulseAnimation() {
+        pulseAnimatorX?.cancel()
+        pulseAnimatorY?.cancel()
+        pulseAnimatorX = null
+        pulseAnimatorY = null
+        
+        buttonGlowView.scaleX = 1.0f
+        buttonGlowView.scaleY = 1.0f
+    }
+
     private fun setVpnState(state: VpnUiState) {
         currentVpnState = state
 
         when (state) {
             VpnUiState.DISCONNECTED -> {
+                stopPulseAnimation()
                 buttonGlowView.alpha = 0f
                 glowView.animate()
                     .alpha(0f)
@@ -417,6 +530,8 @@ class HomeActivity : AppCompatActivity() {
             VpnUiState.CONNECTING -> {
                 buttonGlowView.setImageResource(R.drawable.button_glow_purple)
                 buttonGlowView.alpha = 1f
+                startPulseAnimation()
+                
                 glowView.setImageResource(R.drawable.glow_purple)
                 glowView.scaleX = 0.92f
                 glowView.scaleY = 0.92f
@@ -436,6 +551,8 @@ class HomeActivity : AppCompatActivity() {
             VpnUiState.CONNECTED -> {
                 buttonGlowView.setImageResource(R.drawable.button_glow_blue)
                 buttonGlowView.alpha = 1f
+                startPulseAnimation()
+
                 glowView.setImageResource(R.drawable.glow_blue)
                 glowView.scaleX = 0.92f
                 glowView.scaleY = 0.92f
