@@ -8,21 +8,40 @@ package com.aiovpn.home
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.aiovpn.login.LoginActivity
 import com.aiovpn.login.ServerListActivity
+import com.aiovpn.repo.VpnRepository
 import com.wireguard.android.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class AccountActivity : AppCompatActivity() {
+
+    private lateinit var repo: VpnRepository
 
     private lateinit var sideNav: View
     private lateinit var navHomeContainer: View
     private lateinit var navServersContainer: View
     private lateinit var navAccountContainer: View
     private lateinit var navSettingsContainer: View
+
+    private lateinit var accountSubtitle: TextView
+    private lateinit var subscriptionExpiry: TextView
+    private lateinit var accountEmail: TextView
+    private lateinit var devicesAllowed: TextView
+    private lateinit var logoutButton: Button
 
     private lateinit var navTexts: List<View>
     private var isExpanded = false
@@ -31,11 +50,19 @@ class AccountActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_account)
 
+        repo = VpnRepository(this)
+
         sideNav = findViewById(R.id.sideNav)
         navHomeContainer = findViewById(R.id.navHomeContainer)
         navServersContainer = findViewById(R.id.navServersContainer)
         navAccountContainer = findViewById(R.id.navAccountContainer)
         navSettingsContainer = findViewById(R.id.navSettingsContainer)
+
+        accountSubtitle = findViewById(R.id.accountSubtitle)
+        subscriptionExpiry = findViewById(R.id.subscriptionExpiry)
+        accountEmail = findViewById(R.id.accountEmail)
+        devicesAllowed = findViewById(R.id.devicesAllowed)
+        logoutButton = findViewById(R.id.logoutButton)
 
         navTexts = listOf(
             findViewById(R.id.navHome),
@@ -44,7 +71,75 @@ class AccountActivity : AppCompatActivity() {
             findViewById(R.id.navSettings)
         )
 
+        loadAccountData()
         bindNavigation()
+
+        logoutButton.setOnClickListener {
+            handleLogout()
+        }
+    }
+
+    private fun loadAccountData() {
+        lifecycleScope.launch {
+            try {
+                // 1. Show cached data immediately
+                updateUi(
+                    username = repo.getUsername(),
+                    expiry = repo.getExpiry(),
+                    devices = repo.getDevicesAllowed()
+                )
+
+                // 2. Fetch fresh data from backend
+                withContext(Dispatchers.IO) {
+                    repo.refreshProfile()
+                }
+
+                // 3. Update UI with fresh data
+                updateUi(
+                    username = repo.getUsername(),
+                    expiry = repo.getExpiry(),
+                    devices = repo.getDevicesAllowed()
+                )
+            } catch (e: Exception) {
+                Log.e("AccountActivity", "Failed to refresh profile", e)
+            }
+        }
+    }
+
+    private fun updateUi(username: String?, expiry: String?, devices: String?) {
+        val displayUser = username.orEmpty().ifBlank { "-" }
+        val displayDevices = devices.orEmpty().ifBlank { "-" }
+        val displayExpiry = formatExpiryDate(expiry)
+
+        accountEmail.text = displayUser
+        subscriptionExpiry.text = "Expires on $displayExpiry"
+        accountSubtitle.text = "Manage your subscription and profile"
+        devicesAllowed.text = displayDevices
+    }
+
+    private fun formatExpiryDate(isoDate: String?): String {
+        if (isoDate.isNullOrBlank()) return "-"
+        return try {
+            // Your API format: 2027-10-12T20:06:48.000000Z
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            val date = inputFormat.parse(isoDate)
+            if (date != null) outputFormat.format(date) else isoDate
+        } catch (e: Exception) {
+            isoDate // Fallback to raw string if parsing fails
+        }
+    }
+
+    private fun handleLogout() {
+        lifecycleScope.launch {
+            repo.logout()
+            val intent = Intent(this@AccountActivity, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+        }
     }
 
     private fun bindNavigation() {
@@ -71,7 +166,7 @@ class AccountActivity : AppCompatActivity() {
 
             container.setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    // Focus back to content if needed
+                    logoutButton.requestFocus()
                     true
                 } else {
                     false

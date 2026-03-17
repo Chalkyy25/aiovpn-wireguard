@@ -4,10 +4,12 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.aiovpn.api.ServerDto
 import com.wireguard.android.R
+import java.util.Locale
 
 data class ServerUiItem(
     val server: ServerDto,
@@ -21,6 +23,7 @@ class ServerAdapter(
 ) : RecyclerView.Adapter<ServerAdapter.ServerViewHolder>() {
 
     inner class ServerViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val serverFlag: ImageView = view.findViewById(R.id.serverFlag)
         val serverName: TextView = view.findViewById(R.id.serverName)
         val serverLocation: TextView = view.findViewById(R.id.serverLocation)
         val serverPing: TextView = view.findViewById(R.id.serverPing)
@@ -36,9 +39,10 @@ class ServerAdapter(
         val item = items[position]
         val server = item.server
 
-        holder.serverName.text = server.label ?: server.name ?: "Unknown Server"
-        holder.serverLocation.text = buildLocationText(server)
+        holder.serverName.text = server.country?.let { code -> Locale("", code).displayCountry } ?: server.label ?: "Unknown"
+        holder.serverLocation.text = server.city ?: ""
         holder.serverPing.text = item.pingText
+        holder.serverFlag.setImageResource(resolveFlagRes(holder.itemView, server.country))
 
         holder.itemView.setOnClickListener {
             onServerClick(server)
@@ -85,17 +89,19 @@ class ServerAdapter(
         notifyDataSetChanged()
     }
 
-    private fun buildLocationText(server: ServerDto): String {
-        val city = server.city?.takeIf { it.isNotBlank() }
-        val country = server.country?.takeIf { it.isNotBlank() }
-        val name = server.name?.takeIf { it.isNotBlank() }
+    private fun resolveFlagRes(view: View, countryCode: String?): Int {
+        val normalized = countryCode
+            ?.trim()
+            ?.lowercase(Locale.US)
+            ?.takeIf { it.length == 2 }
+            ?: return R.drawable.ic_nav_servers
 
-        return when {
-            city != null && country != null -> "$city, $country"
-            city != null -> city
-            country != null -> country
-            name != null -> name
-            else -> "Location unavailable"
-        }
+        val resId = view.resources.getIdentifier(
+            "flag_$normalized",
+            "drawable",
+            view.context.packageName
+        )
+
+        return if (resId != 0) resId else R.drawable.ic_nav_servers
     }
 }

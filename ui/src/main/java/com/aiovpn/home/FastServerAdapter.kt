@@ -4,9 +4,11 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.wireguard.android.R
+import java.util.Locale
 
 class FastServerAdapter(
     private var items: List<FastServerItem>,
@@ -15,8 +17,11 @@ class FastServerAdapter(
 ) : RecyclerView.Adapter<FastServerAdapter.FastServerViewHolder>() {
 
     inner class FastServerViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val serverFlag: ImageView = view.findViewById(R.id.serverFlag)
         val serverName: TextView = view.findViewById(R.id.serverName)
         val serverPing: TextView = view.findViewById(R.id.serverPing)
+        val serverSubtitle: TextView = view.findViewById(R.id.serverSubtitle)
+        val serverAction: TextView = view.findViewById(R.id.serverAction)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FastServerViewHolder {
@@ -30,9 +35,24 @@ class FastServerAdapter(
 
         holder.serverName.text = item.label
         holder.serverPing.text = item.pingText
+        
+        holder.serverSubtitle.text = when {
+            item.isAllServers -> holder.itemView.context.getString(R.string.aio_title_servers)
+            !item.cityName.isNullOrBlank() -> item.cityName
+            else -> holder.itemView.context.getString(R.string.aio_fastest_subtitle)
+        }
+
+        holder.serverAction.text =
+            if (item.isAllServers) holder.itemView.context.getString(R.string.aio_title_servers)
+            else holder.itemView.context.getString(R.string.aio_quick_connect)
 
         holder.serverPing.setTextColor(
             if (item.isAllServers) 0xFFEAF1FF.toInt() else 0xFF57E389.toInt()
+        )
+
+        holder.serverFlag.setImageResource(
+            if (item.isAllServers) R.drawable.ic_nav_servers
+            else resolveFlagRes(holder.itemView, item.countryCode)
         )
 
         holder.itemView.alpha = 0.96f
@@ -80,5 +100,21 @@ class FastServerAdapter(
     fun updateItems(newItems: List<FastServerItem>) {
         this.items = newItems
         notifyDataSetChanged()
+    }
+
+    private fun resolveFlagRes(view: View, countryCode: String?): Int {
+        val normalized = countryCode
+            ?.trim()
+            ?.lowercase(Locale.US)
+            ?.takeIf { it.length == 2 }
+            ?: return R.drawable.ic_nav_servers
+
+        val resId = view.resources.getIdentifier(
+            "flag_$normalized",
+            "drawable",
+            view.context.packageName
+        )
+
+        return if (resId != 0) resId else R.drawable.ic_nav_servers
     }
 }

@@ -64,4 +64,16 @@
     <color name="md_theme_dark_surfaceTint">#ADC7FF</color>
     <color name="md_theme_dark_outlineVariant">#44474F</color>
     <color name="md_theme_dark_scrim">#000000</color>
+
+    <color name="aio_background">#0F131E</color>
+    <color name="aio_text_primary">#EAF1FF</color>
+    <color name="aio_text_secondary">#C9D4E8</color>
+    <color name="aio_text_muted">#8AA1C5</color>
+    <color name="aio_text_pill">#E6EBF5</color>
+    <color name="aio_nav_background">#EE111620</color>
+    <color name="aio_success">#57E389</color>
+    <color name="aio_icon_tint">#D9DDE4</color>
+    <color name="aio_divider">#22FFFFFF</color>
+    <color name="aio_danger">#FF4F4F</color>
+    <color name="aio_card_footer">#23293B</color>
 </resources>

@@ -16,6 +16,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.aiovpn.repo.VpnRepository
 import com.google.android.material.color.DynamicColors
 import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.GoBackend
@@ -48,6 +49,9 @@ class Application : android.app.Application() {
     private lateinit var preferencesDataStore: DataStore<Preferences>
     private lateinit var toolsInstaller: ToolsInstaller
     private lateinit var tunnelManager: TunnelManager
+    
+    // SINGLETON REPOSITORY
+    private lateinit var vpnRepository: VpnRepository
 
     override fun attachBaseContext(context: Context) {
         super.attachBaseContext(context)
@@ -89,6 +93,10 @@ class Application : android.app.Application() {
         rootShell = RootShell(applicationContext)
         toolsInstaller = ToolsInstaller(applicationContext, rootShell)
         preferencesDataStore = PreferenceDataStoreFactory.create { applicationContext.preferencesDataStoreFile("settings") }
+        
+        // Initialize repository once
+        vpnRepository = VpnRepository(applicationContext)
+
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             runBlocking {
                 AppCompatDelegate.setDefaultNightMode(if (UserKnobs.darkTheme.first()) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
@@ -149,6 +157,8 @@ class Application : android.app.Application() {
         fun getTunnelManager() = get().tunnelManager
 
         fun getCoroutineScope() = get().coroutineScope
+        
+        fun getVpnRepository() = get().vpnRepository
     }
 
     init {

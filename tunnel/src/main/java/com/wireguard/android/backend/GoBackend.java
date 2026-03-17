@@ -254,7 +254,17 @@ public final class GoBackend implements Backend {
             final VpnService service;
             if (!vpnService.isDone()) {
                 Log.d(TAG, "Requesting to start VpnService");
-                context.startService(new Intent(context, VpnService.class));
+                final Intent intent = new Intent(context, VpnService.class);
+                try {
+                    context.startService(intent);
+                } catch (final IllegalStateException e) {
+                    Log.e(TAG, "Failed to start VpnService from background, retrying with foreground start", e);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent);
+                    } else {
+                        throw e;
+                    }
+                }
             }
 
             try {

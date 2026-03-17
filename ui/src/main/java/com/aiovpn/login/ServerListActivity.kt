@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -22,6 +23,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class ServerFilter {
+    ALL,
+    FASTEST,
+    RECOMMENDED,
+    FAVORITES
+}
+
 class ServerListActivity : AppCompatActivity() {
 
     private lateinit var repo: VpnRepository
@@ -29,6 +37,7 @@ class ServerListActivity : AppCompatActivity() {
     private lateinit var adapter: ServerAdapter
 
     private val uiItems = mutableListOf<ServerUiItem>()
+    private val allUiItems = mutableListOf<ServerUiItem>()
 
     private lateinit var navHomeContainer: View
     private lateinit var navServersContainer: View
@@ -36,8 +45,14 @@ class ServerListActivity : AppCompatActivity() {
     private lateinit var navSettingsContainer: View
     private lateinit var sideNav: View
 
+    private lateinit var filterAll: TextView
+    private lateinit var filterFastest: TextView
+    private lateinit var filterRecommended: TextView
+    private lateinit var filterFavorites: TextView
+
     private lateinit var navTexts: List<View>
     private var isExpanded = false
+    private var currentFilter = ServerFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +67,11 @@ class ServerListActivity : AppCompatActivity() {
         navAccountContainer = findViewById(R.id.navAccountContainer)
         navSettingsContainer = findViewById(R.id.navSettingsContainer)
 
+        filterAll = findViewById(R.id.filterAll)
+        filterFastest = findViewById(R.id.filterFastest)
+        filterRecommended = findViewById(R.id.filterRecommended)
+        filterFavorites = findViewById(R.id.filterFavorites)
+
         navTexts = listOf(
             findViewById(R.id.navHome),
             findViewById(R.id.navServers),
@@ -61,6 +81,7 @@ class ServerListActivity : AppCompatActivity() {
 
         setupRecyclerView()
         bindNavigation()
+        bindFilters()
         loadServers()
 
         recyclerView.post {
@@ -83,6 +104,75 @@ class ServerListActivity : AppCompatActivity() {
         }
 
         recyclerView.adapter = adapter
+    }
+
+    private fun bindFilters() {
+        val chips = listOf(filterAll, filterFastest, filterRecommended, filterFavorites)
+
+        fun updateSelection(selected: TextView) {
+            chips.forEach { it.isSelected = it === selected }
+        }
+
+        filterAll.setOnClickListener {
+            currentFilter = ServerFilter.ALL
+            updateSelection(filterAll)
+            applyFilter()
+        }
+        filterFastest.setOnClickListener {
+            currentFilter = ServerFilter.FASTEST
+            updateSelection(filterFastest)
+            applyFilter()
+        }
+        filterRecommended.setOnClickListener {
+            currentFilter = ServerFilter.RECOMMENDED
+            updateSelection(filterRecommended)
+            applyFilter()
+        }
+        filterFavorites.setOnClickListener {
+            currentFilter = ServerFilter.FAVORITES
+            updateSelection(filterFavorites)
+            applyFilter()
+        }
+
+        chips.forEachIndexed { index, chip ->
+            chip.setOnKeyListener { _, keyCode, event ->
+                if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        recyclerView.requestFocus()
+                        true
+                    }
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (index == 0) {
+                            navServersContainer.requestFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    else -> false
+                }
+            }
+        }
+
+        updateSelection(filterAll)
+    }
+
+    private fun applyFilter() {
+        val filtered = when (currentFilter) {
+            ServerFilter.ALL -> allUiItems
+            ServerFilter.FASTEST -> allUiItems.sortedBy { parsePing(it.pingText) }.take(9)
+            ServerFilter.RECOMMENDED -> allUiItems.sortedBy { parsePing(it.pingText) }.take(6)
+            ServerFilter.FAVORITES -> emptyList()
+        }
+
+        uiItems.clear()
+        uiItems.addAll(filtered)
+        adapter.updateItems(uiItems.toList())
+    }
+
+    private fun parsePing(pingText: String): Int {
+        return pingText.substringBefore(" ms").toIntOrNull() ?: Int.MAX_VALUE
     }
 
     private fun bindNavigation() {
@@ -123,7 +213,7 @@ class ServerListActivity : AppCompatActivity() {
 
             container.setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    recyclerView.requestFocus()
+                    filterAll.requestFocus()
                     true
                 } else {
                     false
@@ -188,25 +278,21 @@ class ServerListActivity : AppCompatActivity() {
                 }
 
                 Log.d(TAG, "Loaded servers count=${servers.size}")
-                servers.forEach { server ->
-                    Log.d(
-                        TAG,
-                        "Server loaded: id=${server.id}, label=${server.label}, endpoint=${server.endpoint}"
-                    )
-                }
 
+                allUiItems.clear()
+                allUiItems.addAll(servers.map { ServerUiItem(it) })
                 uiItems.clear()
-                uiItems.addAll(servers.map { ServerUiItem(it) })
+                uiItems.addAll(allUiItems)
                 adapter.updateItems(uiItems.toList())
 
-                uiItems.forEachIndexed { index, item ->
+                allUiItems.forEachIndexed { index, item ->
                     launch(Dispatchers.IO) {
                         val pingText = measurePingText(item.server)
 
                         withContext(Dispatchers.Main) {
-                            if (index in uiItems.indices) {
-                                uiItems[index] = uiItems[index].copy(pingText = pingText)
-                                adapter.updateItems(uiItems.toList())
+                            if (index in allUiItems.indices) {
+                                allUiItems[index] = allUiItems[index].copy(pingText = pingText)
+                                applyFilter()
                             }
                         }
                     }
@@ -224,7 +310,7 @@ class ServerListActivity : AppCompatActivity() {
 
     private suspend fun measurePingText(server: ServerDto): String {
         return try {
-            val host = server.endpoint.substringBefore(":").ifBlank { server.endpoint }
+            val host = server.endpoint?.substringBefore(":")?.ifBlank { server.endpoint }
             val ping = PingUtil.measurePing(host)
             if (ping > 0) "$ping ms" else "-- ms"
         } catch (e: Exception) {

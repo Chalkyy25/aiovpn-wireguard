@@ -12,12 +12,21 @@
         <item name="materialCardViewStyle">@style/WireGuardTheme.MaterialCardView</item>
         <item name="toolbarStyle">@style/WireGuardTheme.Toolbar</item>
         <item name="bottomSheetDialogTheme">@style/WireGuardTheme.BottomSheetDialog</item>
-        <item name="android:statusBarColor">?android:colorBackground</item>
-        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
+        <item name="android:statusBarColor">#0F131E</item>
+        <item name="android:windowBackground">#0F131E</item>
+        <item name="android:colorBackground">#0F131E</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
-    <!-- Various additional API-specific features in values-v*/styles.xml -->
     <style name="AppTheme" parent="AppThemeBase" />
+
+    <style name="SplashTheme" parent="AppTheme">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
 
     <style name="WireGuardTheme.MaterialCardView" parent="Widget.Material3.CardView.Elevated">
         <item name="cornerRadius">4dp</item>
@@ -45,5 +54,81 @@
     <style name="TvTheme" parent="AppTheme">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+    </style>
+
+    <style name="Aio">
+        <!-- Removed paddingStart 0dp to fix layout alignment issues -->
+    </style>
+
+    <style name="Aio.ScreenPadding" parent="Aio">
+        <item name="android:paddingStart">@dimen/aio_screen_padding</item>
+        <item name="android:paddingTop">@dimen/aio_screen_padding_compact</item>
+        <item name="android:paddingEnd">@dimen/aio_screen_padding</item>
+        <item name="android:paddingBottom">@dimen/aio_screen_padding_bottom</item>
+    </style>
+
+    <style name="Aio.ScreenPadding.Compact" parent="Aio.ScreenPadding">
+        <item name="android:paddingStart">@dimen/aio_screen_padding_compact</item>
+    </style>
+
+    <style name="Aio.TitleText" parent="Aio">
+        <item name="android:textColor">@color/aio_text_primary</item>
+        <item name="android:textSize">@dimen/aio_title_size</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Aio.SubtitleText" parent="Aio">
+        <item name="android:textColor">@color/aio_text_secondary</item>
+        <item name="android:textSize">@dimen/aio_subtitle_size</item>
+    </style>
+
+    <style name="Aio.NavContainer" parent="Aio">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/aio_nav_item_height</item>
+        <item name="android:layout_marginStart">@dimen/aio_nav_item_margin_horizontal</item>
+        <item name="android:layout_marginEnd">@dimen/aio_nav_item_margin_horizontal</item>
+        <item name="android:layout_marginTop">@dimen/aio_nav_item_margin_top</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+        <item name="android:background">@drawable/nav_item_selector</item>
+    </style>
+
+    <style name="Aio.NavContainer.SmallTop" parent="Aio.NavContainer">
+        <item name="android:layout_marginTop">@dimen/aio_nav_item_margin_top_small</item>
+    </style>
+
+    <style name="Aio.NavIcon" parent="Aio">
+        <item name="android:layout_width">@dimen/aio_nav_icon_size</item>
+        <item name="android:layout_height">@dimen/aio_nav_icon_size</item>
+        <item name="android:padding">@dimen/aio_nav_icon_padding</item>
+        <item name="android:duplicateParentState">true</item>
+    </style>
+
+    <style name="Aio.NavText" parent="Aio">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">16dp</item>
+        <item name="android:textColor">@color/aio_text_primary</item>
+        <item name="android:textSize">@dimen/aio_nav_text_size</item>
+        <item name="android:alpha">0</item>
+        <item name="android:duplicateParentState">true</item>
+    </style>
+
+    <style name="Aio.SectionTitle" parent="Aio">
+        <item name="android:textColor">@color/aio_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/aio_subtitle_size</item>
+    </style>
+
+    <style name="Aio.CardSurface" parent="Aio">
+        <item name="android:background">@drawable/card_glass</item>
+        <item name="android:padding">@dimen/aio_card_padding</item>
+    </style>
+
+    <style name="Aio.NavText.Weighted" parent="Aio.NavText">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
     </style>
 </resources>

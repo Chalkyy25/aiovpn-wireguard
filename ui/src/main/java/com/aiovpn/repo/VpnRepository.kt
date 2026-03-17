@@ -11,6 +11,9 @@ class VpnRepository(context: Context) {
     private val api = AioApi()
 
     suspend fun getToken(): String? = tokenStore.getToken()
+    suspend fun getUsername(): String? = tokenStore.getUsername()
+    suspend fun getExpiry(): String? = tokenStore.getExpiry()
+    suspend fun getDevicesAllowed(): String? = tokenStore.getDevicesAllowed()
 
     suspend fun hasToken(): Boolean = !getToken().isNullOrBlank()
 
@@ -21,7 +24,26 @@ class VpnRepository(context: Context) {
 
     suspend fun login(username: String, password: String) {
         val response = api.login(username.trim(), password)
-        tokenStore.saveToken(response.token)
+        tokenStore.saveAuth(
+            token = response.token,
+            username = response.user?.username ?: username,
+            expiry = response.user?.expires,
+            devicesAllowed = response.user?.max_conn?.toString()
+        )
+    }
+
+    /**
+     * Fetches fresh profile data from the API and updates local storage.
+     */
+    suspend fun refreshProfile() {
+        val token = requireToken()
+        val profile = api.profile(token)
+        tokenStore.saveAuth(
+            token = token,
+            username = profile.username,
+            expiry = profile.expires,
+            devicesAllowed = profile.max_conn?.toString()
+        )
     }
 
     suspend fun servers(): List<ServerDto> {

@@ -1,3 +1,8 @@
+/*
+ * Copyright © 2017-2026 WireGuard LLC. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aiovpn.home
 
 import android.animation.ValueAnimator
@@ -22,7 +27,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.aiovpn.login.ServerListActivity
 import com.aiovpn.repo.VpnRepository
+import com.aiovpn.util.ConnectButtonAnimator
 import com.aiovpn.util.PingUtil
+import com.aiovpn.util.SettingsStore
 import com.aiovpn.wireguard.WgAdapter
 import com.wireguard.android.Application
 import com.wireguard.android.R
@@ -31,12 +38,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class HomeActivity : AppCompatActivity() {
 
     private lateinit var repo: VpnRepository
+    private lateinit var settingsStore: SettingsStore
 
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var glowView: ImageView
@@ -53,7 +65,7 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var navServersContainer: View
     private lateinit var navAccountContainer: View
     private lateinit var navSettingsContainer: View
-    
+
     private lateinit var navTexts: List<View>
     private var isExpanded = false
 
@@ -63,9 +75,10 @@ class HomeActivity : AppCompatActivity() {
 
     private var tunnelCallback: Observable.OnPropertyChangedCallback? = null
     private var connectButtonStroke: GradientDrawable? = null
-    
-    private var pulseAnimatorX: android.animation.ObjectAnimator? = null
-    private var pulseAnimatorY: android.animation.ObjectAnimator? = null
+
+    private lateinit var connectButtonAnimator: ConnectButtonAnimator
+    private lateinit var fastServerAdapter: FastServerAdapter
+    private var fastServerLookup: Map<Int, String> = emptyMap()
 
     enum class VpnUiState {
         DISCONNECTED,
@@ -78,6 +91,7 @@ class HomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_home)
 
         repo = VpnRepository(this)
+        settingsStore = SettingsStore(this)
 
         drawerLayout = findViewById(R.id.homeDrawer)
         glowView = findViewById(R.id.glowView)
@@ -94,7 +108,7 @@ class HomeActivity : AppCompatActivity() {
         navServersContainer = findViewById(R.id.navServersContainer)
         navAccountContainer = findViewById(R.id.navAccountContainer)
         navSettingsContainer = findViewById(R.id.navSettingsContainer)
-        
+
         navTexts = listOf(
             findViewById(R.id.navHome),
             findViewById(R.id.navServers),
@@ -103,20 +117,37 @@ class HomeActivity : AppCompatActivity() {
         )
 
         connectButtonStroke = connectButton.background?.mutate() as? GradientDrawable
+        connectButtonAnimator = ConnectButtonAnimator(buttonGlowView)
 
         setupRecycler()
         bindNavigation()
         bindConnectButton()
-        
+
         setVpnState(VpnUiState.DISCONNECTED)
-        selectedServerText.text = "No server selected"
+        
+        // Restore last server from settings
+        lifecycleScope.launch {
+            selectedServerId = settingsStore.lastServerIdFlow.first()
+            selectedServerLabel = settingsStore.lastServerLabelFlow.first()
+            selectedServerText.text = selectedServerLabel ?: "No server selected"
+            
+            // Auto-connect if enabled
+            if (settingsStore.autoConnectFlow.first() && selectedServerId != null && selectedServerLabel != null) {
+                handleConnectButtonClick()
+            }
+        }
 
         handleIntent(intent)
-        loadFastestServers()
         observeTunnelState()
 
         connectButton.post {
             connectButton.requestFocus()
+        }
+
+        // DELAYED LOAD: Don't choke the startup transition
+        lifecycleScope.launch {
+            delay(1500)
+            loadFastestServers()
         }
     }
 
@@ -134,6 +165,11 @@ class HomeActivity : AppCompatActivity() {
             selectedServerId = serverId
             selectedServerLabel = serverLabel
             selectedServerText.text = serverLabel
+            
+            // Save as last used server
+            lifecycleScope.launch {
+                settingsStore.saveLastServer(serverId, serverLabel)
+            }
         }
     }
 
@@ -144,7 +180,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopPulseAnimation()
+        connectButtonAnimator.stop()
         tunnelCallback?.let { callback ->
             try {
                 Application.getTunnelManager().removeOnPropertyChangedCallback(callback)
@@ -196,7 +232,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun bindNavigation() {
         val navContainers = listOf(navHomeContainer, navServersContainer, navAccountContainer, navSettingsContainer)
-        
+
         navHomeContainer.isSelected = true
 
         navContainers.forEach { container ->
@@ -215,7 +251,7 @@ class HomeActivity : AppCompatActivity() {
                     }, 50)
                 }
             }
-            
+
             container.setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
                     connectButton.requestFocus()
@@ -224,7 +260,7 @@ class HomeActivity : AppCompatActivity() {
                     false
                 }
             }
-            
+
             container.setOnClickListener {
                 when (container.id) {
                     R.id.navHomeContainer -> {
@@ -257,7 +293,7 @@ class HomeActivity : AppCompatActivity() {
             params.width = animator.animatedValue as Int
             sideNav.layoutParams = params
         }
-        
+
         widthAnimator.duration = 250
         widthAnimator.interpolator = AccelerateDecelerateInterpolator()
         widthAnimator.start()
@@ -365,7 +401,11 @@ class HomeActivity : AppCompatActivity() {
                 delay(600)
 
                 val config = repo.wgConfig(serverId)
-                WgAdapter.connect(serverId, label, config)
+                
+                // Read Kill Switch setting
+                val killSwitch = settingsStore.killSwitchFlow.first()
+                
+                WgAdapter.connect(serverId, label, config, killSwitch)
 
             } catch (e: Exception) {
                 Log.e("HomeActivity", "Connection failed", e)
@@ -405,9 +445,24 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupRecycler() {
+        fastServerAdapter = FastServerAdapter(
+            items = listOf(FastServerItem(-1, "All Servers", null, "See more", null, true)),
+            onMoveToSidebar = {
+                navHomeContainer.requestFocus()
+            },
+            onServerClick = { item ->
+                if (item.isAllServers) {
+                    startActivity(Intent(this@HomeActivity, ServerListActivity::class.java))
+                } else {
+                    val fullLabel = fastServerLookup[item.id] ?: item.label
+                    prepareVpnAndConnect(item.id, fullLabel)
+                }
+            }
+        )
+
         fastestServersRecycler.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-
+        fastestServersRecycler.adapter = fastServerAdapter
         fastestServersRecycler.clipToPadding = false
         fastestServersRecycler.clipChildren = false
         fastestServersRecycler.setHasFixedSize(true)
@@ -420,91 +475,75 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val servers = withContext(Dispatchers.IO) { repo.servers() }
-
-                val initialItems = servers.take(4).map {
-                    FastServerItem(it.id, it.label ?: "", "... ms", false)
-                }.toMutableList().apply {
-                    add(FastServerItem(-1, "All Servers", "See more", true))
+                fastServerLookup = servers.associate { server ->
+                    server.id to (server.label ?: displayNameFor(server.country, fallback = "Unknown"))
                 }
 
-                val adapter = FastServerAdapter(
-                    items = initialItems,
-                    onMoveToSidebar = {
-                        navHomeContainer.requestFocus()
-                    },
-                    onServerClick = { item ->
-                        if (item.isAllServers) {
-                            startActivity(Intent(this@HomeActivity, ServerListActivity::class.java))
-                        } else {
-                            prepareVpnAndConnect(item.id, item.label)
-                        }
-                    }
-                )
+                // Show basic list first
+                val initialItems = servers.take(4).map { server ->
+                    FastServerItem(
+                        id = server.id,
+                        label = displayNameFor(server.country, server.label ?: ""),
+                        cityName = server.city,
+                        pingText = "... ms",
+                        countryCode = server.country,
+                        isAllServers = false
+                    )
+                }.toMutableList().apply {
+                    add(FastServerItem(-1, "All Servers", null, "See more", null, true))
+                }
 
-                fastestServersRecycler.adapter = adapter
+                fastServerAdapter.updateItems(initialItems)
+
+                // Limit concurrency strictly for TV hardware
+                val semaphore = Semaphore(2)
 
                 val sortedItems = withContext(Dispatchers.IO) {
-                    val pings = servers.map { server ->
+                    val pings = servers.take(12).map { server -> // Don't ping more than 12 at once
                         async {
-                            val pingValue = try {
-                                PingUtil.measurePing(server.endpoint ?: "")
-                            } catch (_: Exception) {
-                                -1
+                            semaphore.withPermit {
+                                val pingValue = try {
+                                    PingUtil.measurePing(server.endpoint ?: "")
+                                } catch (_: Exception) {
+                                    -1
+                                }
+                                server to pingValue
                             }
-                            server to pingValue
                         }
                     }.awaitAll()
 
-                    pings.sortedBy { (_, ping) ->
+                    val bestServers = pings.sortedBy { (_, ping) ->
                         if (ping < 0) Int.MAX_VALUE else ping
-                    }.take(4).map { (server, ping) ->
+                    }.take(4)
+
+                    bestServers.map { (server, ping) ->
                         FastServerItem(
                             id = server.id,
-                            label = server.label ?: "Unknown",
+                            label = displayNameFor(server.country, server.label ?: "Unknown"),
+                            cityName = server.city,
                             pingText = if (ping > 0) "$ping ms" else "-- ms",
+                            countryCode = server.country,
                             isAllServers = false
                         )
                     }.toMutableList().apply {
-                        add(FastServerItem(-1, "All Servers", "See more", true))
+                        add(FastServerItem(-1, "All Servers", null, "See more", null, true))
                     }
                 }
 
-                adapter.updateItems(sortedItems)
+                fastServerAdapter.updateItems(sortedItems)
 
             } catch (e: Exception) {
-                Log.e("HomeActivity", "Failed to load fastest servers", e)
+                Log.e(TAG, "Failed to load fastest servers", e)
             }
         }
     }
 
-    private fun startPulseAnimation() {
-        if (pulseAnimatorX != null) return
-
-        pulseAnimatorX = android.animation.ObjectAnimator.ofFloat(buttonGlowView, View.SCALE_X, 1.0f, 1.03f).apply {
-            duration = 2000
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-            start()
-        }
-
-        pulseAnimatorY = android.animation.ObjectAnimator.ofFloat(buttonGlowView, View.SCALE_Y, 1.0f, 1.03f).apply {
-            duration = 2000
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-            start()
-        }
-    }
-
-    private fun stopPulseAnimation() {
-        pulseAnimatorX?.cancel()
-        pulseAnimatorY?.cancel()
-        pulseAnimatorX = null
-        pulseAnimatorY = null
-        
-        buttonGlowView.scaleX = 1.0f
-        buttonGlowView.scaleY = 1.0f
+    private fun displayNameFor(countryCode: String?, fallback: String): String {
+        return countryCode
+            ?.takeIf { it.length == 2 }
+            ?.let { Locale("", it).displayCountry }
+            ?.takeIf { it.isNotBlank() }
+            ?: fallback
     }
 
     private fun setVpnState(state: VpnUiState) {
@@ -512,8 +551,7 @@ class HomeActivity : AppCompatActivity() {
 
         when (state) {
             VpnUiState.DISCONNECTED -> {
-                stopPulseAnimation()
-                buttonGlowView.alpha = 0f
+                connectButtonAnimator.stop()
                 glowView.animate()
                     .alpha(0f)
                     .scaleX(0.95f)
@@ -529,9 +567,8 @@ class HomeActivity : AppCompatActivity() {
 
             VpnUiState.CONNECTING -> {
                 buttonGlowView.setImageResource(R.drawable.button_glow_purple)
-                buttonGlowView.alpha = 1f
-                startPulseAnimation()
-                
+                connectButtonAnimator.startConnectingAnimation()
+
                 glowView.setImageResource(R.drawable.glow_purple)
                 glowView.scaleX = 0.92f
                 glowView.scaleY = 0.92f
@@ -550,8 +587,7 @@ class HomeActivity : AppCompatActivity() {
 
             VpnUiState.CONNECTED -> {
                 buttonGlowView.setImageResource(R.drawable.button_glow_blue)
-                buttonGlowView.alpha = 1f
-                startPulseAnimation()
+                connectButtonAnimator.setStable(1.0f)
 
                 glowView.setImageResource(R.drawable.glow_blue)
                 glowView.scaleX = 0.92f
@@ -573,6 +609,7 @@ class HomeActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_VPN_PERMISSION = 1001
+        private const val TAG = "HomeActivity"
 
         private var pendingServerId: Int? = null
         private var pendingServerLabel: String? = null

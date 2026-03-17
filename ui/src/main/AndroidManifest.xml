@@ -37,19 +37,21 @@
     <application
         android:name=".Application"
         android:allowBackup="false"
-        android:banner="@mipmap/banner"
+        android:banner="@drawable/tv_logo_banner"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="@string/aio_app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        tools:replace="android:label,android:banner">
 
         <!-- Single entry point for phone/tablet -->
         <activity
             android:name="com.aiovpn.auth.AuthGateActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -76,6 +78,10 @@
             android:theme="@style/TvTheme" />
         <activity
             android:name="com.aiovpn.home.SettingsActivity"
+            android:theme="@style/TvTheme" />
+        <activity
+            android:name="com.aiovpn.home.SplitTunnelingActivity"
+            android:screenOrientation="landscape"
             android:theme="@style/TvTheme" />
 
         <!-- WireGuard core activities -->

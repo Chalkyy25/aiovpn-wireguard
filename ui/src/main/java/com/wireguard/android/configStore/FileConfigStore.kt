@@ -39,9 +39,11 @@ class FileConfigStore(private val context: Context) : ConfigStore {
     }
 
     override fun enumerate(): Set<String> {
-        return context.fileList()
-            .filter { it.endsWith(".conf") }
-            .map { it.substring(0, it.length - ".conf".length) }
+        // Use filesDir.listFiles() instead of context.fileList() to avoid UnixSecureDirectoryStream leaks
+        val files = context.filesDir.listFiles() ?: return emptySet()
+        return files
+            .filter { it.name.endsWith(".conf") }
+            .map { it.name.substring(0, it.name.length - ".conf".length) }
             .toSet()
     }
 
