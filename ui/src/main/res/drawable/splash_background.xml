@@ -7,7 +7,7 @@
     <item android:drawable="@color/aio_background" />
     <item
         android:gravity="center"
-        android:width="320dp"
-        android:height="180dp"
+        android:width="620dp"
+        android:height="320dp"
         android:drawable="@drawable/aio_vpn_logo" />
 </layer-list>
