@@ -1,6 +1,5 @@
 /*
- * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
+ * Refactored for AIO VPN backend updater
  */
 package com.wireguard.android.updater
 
@@ -13,7 +12,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Base64
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
@@ -33,28 +31,106 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.charset.StandardCharsets
-import java.security.InvalidKeyException
 import java.security.InvalidParameterException
 import java.security.MessageDigest
 import java.util.UUID
-import kotlin.math.max
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 object Updater {
-    private const val TAG = "WireGuard/Updater"
-    private const val UPDATE_URL_FMT = "https://download.wireguard.com/android-client/%s"
-    private const val APK_NAME_PREFIX = BuildConfig.APPLICATION_ID + "-"
-    private const val APK_NAME_SUFFIX = ".apk"
-    private const val LATEST_FILE = "latest.sig"
-    private const val RELEASE_PUBLIC_KEY_BASE64 = "RWTAzwGRYr3EC9px0Ia3fbttz8WcVN6wrOwWp2delz4el6SI8XmkKSMp"
-    private val CURRENT_VERSION by lazy { Version(BuildConfig.VERSION_NAME) }
+    private const val TAG = "AIOVPN/Updater"
+
+    // Change this only if your panel/API domain changes
+    private const val LATEST_URL = "https://panel.aiovpn.co.uk/api/app/latest"
 
     private val updaterScope = CoroutineScope(Job() + Dispatchers.IO)
+
+    private data class Sha256Digest(val bytes: ByteArray) {
+        companion object {
+            fun fromHex(hex: String): Sha256Digest {
+                if (hex.length != 64) {
+                    throw InvalidParameterException("SHA256 hash must be 64 hex chars")
+                }
+                val out = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                return Sha256Digest(out)
+            }
+        }
+    }
+
+    private data class UpdateInfo(
+        val id: Long,
+        val versionCode: Long,
+        val versionName: String,
+        val mandatory: Boolean,
+        val releaseNotes: String?,
+        val sha256: Sha256Digest,
+        val apkUrl: String
+    )
+
+    sealed class Progress {
+        object Complete : Progress()
+        object Rechecking : Progress()
+        class Downloading(val bytesDownloaded: ULong, val bytesTotal: ULong) : Progress()
+        object Installing : Progress()
+
+        class Available(
+            val versionName: String,
+            val versionCode: Long,
+            val mandatory: Boolean,
+            val releaseNotes: String?
+        ) : Progress() {
+            fun update() {
+                applicationScope.launch {
+                    UserKnobs.setUpdaterNewerVersionConsented(versionCode.toString())
+                }
+            }
+        }
+
+        class NeedsUserIntervention(val intent: Intent, private val sessionId: Int) : Progress() {
+            private suspend fun installerActive(): Boolean {
+                if (mutableState.firstOrNull() != this@NeedsUserIntervention) return true
+                return try {
+                    Application.get().packageManager.packageInstaller
+                        .getSessionInfo(sessionId)
+                        ?.isActive == true
+                } catch (_: SecurityException) {
+                    true
+                }
+            }
+
+            fun markAsDone() {
+                applicationScope.launch {
+                    if (installerActive()) return@launch
+                    delay(7.seconds)
+                    if (installerActive()) return@launch
+                    emitProgress(Failure(Exception("Install ignored by user")))
+                }
+            }
+        }
+
+        class Failure(val error: Throwable) : Progress() {
+            fun retry() {
+                updaterScope.launch {
+                    downloadAndUpdateWrapErrors()
+                }
+            }
+        }
+
+        class Corrupt(val downloadUrl: String?) : Progress()
+    }
+
+    private val mutableState = MutableStateFlow<Progress>(Progress.Complete)
+    val state = mutableState.asStateFlow()
+
+    private suspend fun emitProgress(progress: Progress, force: Boolean = false) {
+        if (force || mutableState.firstOrNull()?.javaClass != progress.javaClass) {
+            mutableState.emit(progress)
+        }
+    }
 
     private fun installer(context: Context): String = try {
         val packageName = context.packageName
@@ -69,238 +145,145 @@ object Updater {
         ""
     }
 
-    fun installerIsGooglePlay(context: Context): Boolean = installer(context) == "com.android.vending"
+    fun installerIsGooglePlay(context: Context): Boolean {
+        return installer(context) == "com.android.vending"
+    }
 
-    sealed class Progress {
-        object Complete : Progress()
-        class Available(val version: String) : Progress() {
-            fun update() {
-                applicationScope.launch {
-                    UserKnobs.setUpdaterNewerVersionConsented(version)
-                }
-            }
-        }
-
-        object Rechecking : Progress()
-        class Downloading(val bytesDownloaded: ULong, val bytesTotal: ULong) : Progress()
-        object Installing : Progress()
-        class NeedsUserIntervention(val intent: Intent, private val id: Int) : Progress() {
-
-            private suspend fun installerActive(): Boolean {
-                if (mutableState.firstOrNull() != this@NeedsUserIntervention)
-                    return true
-                try {
-                    if (Application.get().packageManager.packageInstaller.getSessionInfo(id)?.isActive == true)
-                        return true
-                } catch (_: SecurityException) {
-                    return true
-                }
-                return false
-            }
-
-            fun markAsDone() {
-                applicationScope.launch {
-                    if (installerActive())
-                        return@launch
-                    delay(7.seconds)
-                    if (installerActive())
-                        return@launch
-                    emitProgress(Failure(Exception("Ignored by user")))
-                }
-            }
-        }
-
-        class Failure(val error: Throwable) : Progress() {
-            fun retry() {
-                updaterScope.launch {
-                    downloadAndUpdateWrapErrors()
-                }
-            }
-        }
-
-        class Corrupt(private val betterFile: String?) : Progress() {
-            val downloadUrl: String
-                get() = UPDATE_URL_FMT.format(betterFile ?: "")
+    private fun currentVersionCode(context: Context): Long {
+        val pm = context.packageManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            pm.getPackageInfo(context.packageName, 0).longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(context.packageName, 0).versionCode.toLong()
         }
     }
 
-    private val mutableState = MutableStateFlow<Progress>(Progress.Complete)
-    val state = mutableState.asStateFlow()
-
-    private suspend fun emitProgress(progress: Progress, force: Boolean = false) {
-        if (force || mutableState.firstOrNull()?.javaClass != progress.javaClass)
-            mutableState.emit(progress)
-    }
-
-    private class Sha256Digest(hex: String) {
-        val bytes: ByteArray
-
-        init {
-            if (hex.length != 64)
-                throw InvalidParameterException("SHA256 hashes must be 32 bytes long")
-            bytes = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        }
-    }
-
-    @OptIn(ExperimentalUnsignedTypes::class)
-    private class Version(version: String) : Comparable<Version> {
-        val parts: ULongArray
-
-        init {
-            val strParts = version.split(".")
-            if (strParts.isEmpty())
-                throw InvalidParameterException("Version has no parts")
-            parts = ULongArray(strParts.size)
-            for (i in parts.indices) {
-                parts[i] = strParts[i].toULong()
-            }
-        }
-
-        override fun toString(): String {
-            return parts.joinToString(".")
-        }
-
-        override fun compareTo(other: Version): Int {
-            for (i in 0 until max(parts.size, other.parts.size)) {
-                val lhsPart = if (i < parts.size) parts[i] else 0UL
-                val rhsPart = if (i < other.parts.size) other.parts[i] else 0UL
-                if (lhsPart > rhsPart)
-                    return 1
-                else if (lhsPart < rhsPart)
-                    return -1
-            }
-            return 0
-        }
-    }
-
-    private class Update(val fileName: String, val version: Version, val hash: Sha256Digest)
-
-    private fun versionOfFile(name: String): Version? {
-        if (!name.startsWith(APK_NAME_PREFIX) || !name.endsWith(APK_NAME_SUFFIX))
-            return null
-        return try {
-            Version(name.substring(APK_NAME_PREFIX.length, name.length - APK_NAME_SUFFIX.length))
-        } catch (_: Throwable) {
-            null
-        }
-    }
-
-    private fun verifySignedFileList(signifyDigest: String): List<Update> {
-        val updates = ArrayList<Update>(1)
-        val publicKeyBytes = Base64.decode(RELEASE_PUBLIC_KEY_BASE64, Base64.DEFAULT)
-        if (publicKeyBytes == null || publicKeyBytes.size != 32 + 10 || publicKeyBytes[0] != 'E'.code.toByte() || publicKeyBytes[1] != 'd'.code.toByte())
-            throw InvalidKeyException("Invalid public key")
-        val lines = signifyDigest.split("\n", limit = 3)
-        if (lines.size != 3)
-            throw InvalidParameterException("Invalid signature format: too few lines")
-        if (!lines[0].startsWith("untrusted comment: "))
-            throw InvalidParameterException("Invalid signature format: missing comment")
-        val signatureBytes = Base64.decode(lines[1], Base64.DEFAULT)
-        if (signatureBytes == null || signatureBytes.size != 64 + 10)
-            throw InvalidParameterException("Invalid signature format: wrong sized or missing signature")
-        for (i in 0..9) {
-            if (signatureBytes[i] != publicKeyBytes[i])
-                throw InvalidParameterException("Invalid signature format: wrong signer")
-        }
-        if (!Ed25519.verify(
-                lines[2].toByteArray(StandardCharsets.UTF_8),
-                signatureBytes.sliceArray(10 until 10 + 64),
-                publicKeyBytes.sliceArray(10 until 10 + 32)
-            )
-        )
-            throw SecurityException("Invalid signature")
-        for (line in lines[2].split("\n").dropLastWhile { it.isEmpty() }) {
-            val components = line.split("  ", limit = 2)
-            if (components.size != 2)
-                throw InvalidParameterException("Invalid file list format: too few components")
-            /* If version is null, it's not a file we understand, but still a legitimate entry, so don't throw. */
-            val version = versionOfFile(components[1]) ?: continue
-            updates.add(Update(components[1], version, Sha256Digest(components[0])))
-        }
-        return updates
-    }
-
-    private fun checkForUpdates(): Update? {
-        val connection = URL(UPDATE_URL_FMT.format(LATEST_FILE)).openConnection() as HttpURLConnection
+    private fun checkForUpdates(): UpdateInfo? {
+        val connection = URL(LATEST_URL).openConnection() as HttpURLConnection
         connection.setRequestProperty("User-Agent", Application.USER_AGENT)
+        connection.connectTimeout = 15000
+        connection.readTimeout = 20000
         connection.connect()
-        if (connection.responseCode != HttpURLConnection.HTTP_OK)
-            throw IOException(connection.responseMessage)
-        var fileListBytes = ByteArray(1024 * 512 /* 512 KiB */)
-        connection.inputStream.use {
-            val len = it.read(fileListBytes)
-            if (len <= 0)
-                throw IOException("File list is empty")
-            fileListBytes = fileListBytes.sliceArray(0 until len)
+
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            throw IOException("Update check failed: ${connection.responseCode} ${connection.responseMessage}")
         }
-        return verifySignedFileList(fileListBytes.decodeToString()).maxByOrNull { it.version }
+
+        val response = connection.inputStream.bufferedReader().use { it.readText() }
+        val json = JSONObject(response)
+
+        val id = json.getLong("id")
+        val versionCode = json.getLong("version_code")
+        val versionName = json.getString("version_name")
+        val mandatory = json.optBoolean("mandatory", false)
+        val releaseNotes = json.optString("release_notes", null)?.takeIf { it.isNotBlank() }
+        val sha256 = json.getString("sha256")
+        val apkUrl = json.getString("apk_url")
+
+        return UpdateInfo(
+            id = id,
+            versionCode = versionCode,
+            versionName = versionName,
+            mandatory = mandatory,
+            releaseNotes = releaseNotes,
+            sha256 = Sha256Digest.fromHex(sha256),
+            apkUrl = apkUrl
+        )
     }
 
     private suspend fun downloadAndUpdate() = withContext(Dispatchers.IO) {
-        val receiver = InstallReceiver()
         val context = Application.get().applicationContext
+        val currentVersionCode = currentVersionCode(context)
+
+        val receiver = InstallReceiver()
         val pendingIntent = withContext(Dispatchers.Main) {
-            ContextCompat.registerReceiver(context, receiver, IntentFilter(receiver.sessionId), ContextCompat.RECEIVER_NOT_EXPORTED)
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                IntentFilter(receiver.broadcastAction),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+
             PendingIntent.getBroadcast(
                 context,
                 0,
-                Intent(receiver.sessionId).setPackage(context.packageName),
+                Intent(receiver.broadcastAction).setPackage(context.packageName),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
         }
 
         emitProgress(Progress.Rechecking)
+
         val update = checkForUpdates()
-        if (update == null || update.version <= CURRENT_VERSION) {
+        if (update == null || update.versionCode <= currentVersionCode) {
             emitProgress(Progress.Complete)
             return@withContext
         }
 
         emitProgress(Progress.Downloading(0UL, 0UL), true)
-        val connection = URL(UPDATE_URL_FMT.format(update.fileName)).openConnection() as HttpURLConnection
+
+        val connection = URL(update.apkUrl).openConnection() as HttpURLConnection
         connection.setRequestProperty("User-Agent", Application.USER_AGENT)
+        connection.connectTimeout = 15000
+        connection.readTimeout = 60000
         connection.connect()
-        if (connection.responseCode != HttpURLConnection.HTTP_OK)
-            throw IOException("Update could not be fetched: ${connection.responseCode}")
+
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            throw IOException("Update APK fetch failed: ${connection.responseCode} ${connection.responseMessage}")
+        }
 
         var downloadedByteLen: ULong = 0UL
-        val totalByteLen = connection.contentLengthLong.toULong()
-        val fileBytes = ByteArray(1024 * 32 /* 32 KiB */)
+        val totalByteLen = connection.contentLengthLong.takeIf { it > 0 }?.toULong() ?: 0UL
+        val buffer = ByteArray(32 * 1024)
         val digest = MessageDigest.getInstance("SHA-256")
+
         emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
 
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-        params.setAppPackageName(context.packageName) /* Enforces updates; disallows new apps. */
+        }
+
+        // This forces install as an update to the same app only.
+        params.setAppPackageName(context.packageName)
+
         val session = installer.openSession(installer.createSession(params))
         var sessionFailure = true
+
         try {
-            val installDest = session.openWrite(receiver.sessionId, 0, -1)
+            val installDest = session.openWrite("aiovpn-update-${update.versionCode}", 0, -1)
 
             installDest.use { dest ->
                 connection.inputStream.use { src ->
                     while (true) {
-                        val readLen = src.read(fileBytes)
-                        if (readLen <= 0)
-                            break
+                        val readLen = src.read(buffer)
+                        if (readLen <= 0) break
 
-                        digest.update(fileBytes, 0, readLen)
-                        dest.write(fileBytes, 0, readLen)
+                        digest.update(buffer, 0, readLen)
+                        dest.write(buffer, 0, readLen)
 
                         downloadedByteLen += readLen.toUInt()
                         emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
 
-                        if (downloadedByteLen >= 1024UL * 1024UL * 100UL /* 100 MiB */)
-                            throw IOException("File too large")
+                        if (downloadedByteLen >= 500UL * 1024UL * 1024UL) {
+                            throw IOException("Update APK too large")
+                        }
                     }
                 }
+
+                session.fsync(dest)
             }
 
             emitProgress(Progress.Installing)
-            if (!digest.digest().contentEquals(update.hash.bytes))
-                throw SecurityException("Update has invalid hash")
+
+            val actualHash = digest.digest()
+            if (!actualHash.contentEquals(update.sha256.bytes)) {
+                throw SecurityException("Downloaded APK SHA256 mismatch")
+            }
+
             sessionFailure = false
         } finally {
             if (sessionFailure) {
@@ -308,59 +291,74 @@ object Updater {
                 session.close()
             }
         }
+
         session.commit(pendingIntent.intentSender)
         session.close()
     }
 
     private var updating = false
+
     private suspend fun downloadAndUpdateWrapErrors() {
-        if (updating)
-            return
+        if (updating) return
         updating = true
+
         try {
             downloadAndUpdate()
         } catch (e: Throwable) {
             Log.e(TAG, "Update failure", e)
-            emitProgress(Progress.Failure(e))
+            emitProgress(Progress.Failure(e), force = true)
         }
+
         updating = false
     }
 
     private class InstallReceiver : BroadcastReceiver() {
-        val sessionId = UUID.randomUUID().toString()
+        val broadcastAction = UUID.randomUUID().toString()
 
         override fun onReceive(context: Context, intent: Intent) {
-            if (sessionId != intent.action)
-                return
+            if (intent.action != broadcastAction) return
 
-            when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE_INVALID)) {
+            when (val status = intent.getIntExtra(
+                PackageInstaller.EXTRA_STATUS,
+                PackageInstaller.STATUS_FAILURE_INVALID
+            )) {
                 PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                    val id = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, 0)
-                    val userIntervention = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)!!
+                    val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, 0)
+                    val userIntervention = IntentCompat.getParcelableExtra(
+                        intent,
+                        Intent.EXTRA_INTENT,
+                        Intent::class.java
+                    ) ?: return
+
                     applicationScope.launch {
-                        emitProgress(Progress.NeedsUserIntervention(userIntervention, id))
+                        emitProgress(Progress.NeedsUserIntervention(userIntervention, sessionId), force = true)
                     }
                 }
 
                 PackageInstaller.STATUS_SUCCESS -> {
                     applicationScope.launch {
-                        emitProgress(Progress.Complete)
+                        emitProgress(Progress.Complete, force = true)
                     }
                     context.applicationContext.unregisterReceiver(this)
                 }
 
                 else -> {
-                    val id = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, 0)
+                    val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, 0)
+
                     try {
-                        context.applicationContext.packageManager.packageInstaller.abandonSession(id)
+                        context.applicationContext.packageManager.packageInstaller.abandonSession(sessionId)
                     } catch (_: SecurityException) {
                     }
-                    val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Installation error $status"
+
+                    val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                        ?: "Installation error $status"
+
                     applicationScope.launch {
-                        val e = Exception(message)
-                        Log.e(TAG, "Update failure", e)
-                        emitProgress(Progress.Failure(e))
+                        val error = Exception(message)
+                        Log.e(TAG, "Install failure", error)
+                        emitProgress(Progress.Failure(error), force = true)
                     }
+
                     context.applicationContext.unregisterReceiver(this)
                 }
             }
@@ -368,89 +366,132 @@ object Updater {
     }
 
     fun monitorForUpdates() {
-        if (BuildConfig.DEBUG)
-            return
+        if (BuildConfig.DEBUG) return
 
         val context = Application.get()
+        val installedBy = installer(context)
 
-        if (installerIsGooglePlay(context))
-            return
+        if (installerIsGooglePlay(context)) return
 
         if (BuildConfig.BUILD_TYPE == "googleplay") {
-            if (installer(context).isNotEmpty()) {
+            if (installedBy.isNotEmpty()) {
                 applicationScope.launch {
-                    emitProgress(Progress.Corrupt(null))
+                    emitProgress(Progress.Corrupt(null), force = true)
                 }
             }
             return
         }
 
-        if (if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-            } else {
-                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
-            }.requestedPermissions?.contains(Manifest.permission.REQUEST_INSTALL_PACKAGES) != true
-        ) {
-            if (installer(context).isNotEmpty()) {
+        val hasInstallPermission = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_PERMISSIONS
+            )
+        } else {
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+            )
+        }.requestedPermissions?.contains(Manifest.permission.REQUEST_INSTALL_PACKAGES) == true
+
+        if (!hasInstallPermission) {
+            if (installedBy.isNotEmpty()) {
                 updaterScope.launch {
                     val update = try {
                         checkForUpdates()
                     } catch (_: Throwable) {
                         null
                     }
-                    emitProgress(Progress.Corrupt(update?.fileName))
+                    emitProgress(Progress.Corrupt(update?.apkUrl), force = true)
                 }
             }
             return
         }
 
         updaterScope.launch {
-            if (UserKnobs.updaterNewerVersionSeen.firstOrNull()?.let { Version(it) > CURRENT_VERSION } == true)
+            val currentVersionCode = currentVersionCode(context)
+            val seenVersion = UserKnobs.updaterNewerVersionSeen.firstOrNull()?.toLongOrNull() ?: 0L
+
+            if (seenVersion > currentVersionCode) {
                 return@launch
+            }
 
             var waitTime = 15
             while (true) {
                 try {
-                    val update = checkForUpdates() ?: continue
-                    if (update.version > CURRENT_VERSION) {
-                        Log.i(TAG, "Update available: ${update.version}")
-                        UserKnobs.setUpdaterNewerVersionSeen(update.version.toString())
+                    val update = checkForUpdates()
+                    if (update != null && update.versionCode > currentVersionCode) {
+                        Log.i(TAG, "Update available: ${update.versionName} (${update.versionCode})")
+                        UserKnobs.setUpdaterNewerVersionSeen(update.versionCode.toString())
+
+                        if (update.mandatory) {
+                            UserKnobs.setUpdaterNewerVersionConsented(update.versionCode.toString())
+                        } else {
+                            emitProgress(
+                                Progress.Available(
+                                    versionName = update.versionName,
+                                    versionCode = update.versionCode,
+                                    mandatory = update.mandatory,
+                                    releaseNotes = update.releaseNotes
+                                ),
+                                force = true
+                            )
+                        }
                         return@launch
                     }
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    Log.e(TAG, "Error checking for updates", e)
                 }
+
                 delay(waitTime.minutes)
                 waitTime = 45
             }
         }
 
-        UserKnobs.updaterNewerVersionSeen.onEach { ver ->
-            if (
-                ver != null &&
-                Version(ver) > CURRENT_VERSION &&
-                UserKnobs.updaterNewerVersionConsented.firstOrNull()?.let { Version(it) > CURRENT_VERSION } != true
-            )
-                emitProgress(Progress.Available(ver))
+        UserKnobs.updaterNewerVersionSeen.onEach { seen ->
+            val currentVersionCode = currentVersionCode(context)
+            val seenVersion = seen?.toLongOrNull() ?: 0L
+            val consentedVersion = UserKnobs.updaterNewerVersionConsented.firstOrNull()?.toLongOrNull() ?: 0L
+
+            if (seenVersion > currentVersionCode && consentedVersion <= currentVersionCode) {
+                val update = try {
+                    checkForUpdates()
+                } catch (_: Throwable) {
+                    null
+                }
+
+                if (update != null && update.versionCode > currentVersionCode) {
+                    emitProgress(
+                        Progress.Available(
+                            versionName = update.versionName,
+                            versionCode = update.versionCode,
+                            mandatory = update.mandatory,
+                            releaseNotes = update.releaseNotes
+                        ),
+                        force = true
+                    )
+                }
+            }
         }.launchIn(applicationScope)
 
-        UserKnobs.updaterNewerVersionConsented.onEach { ver ->
-            if (ver != null && Version(ver) > CURRENT_VERSION)
+        UserKnobs.updaterNewerVersionConsented.onEach { consented ->
+            val currentVersionCode = currentVersionCode(context)
+            val consentedVersion = consented?.toLongOrNull() ?: 0L
+
+            if (consentedVersion > currentVersionCode) {
                 updaterScope.launch {
                     downloadAndUpdateWrapErrors()
                 }
+            }
         }.launchIn(applicationScope)
     }
 
     class AppUpdatedReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED)
-                return
+            if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+            if (installer(context) != context.packageName) return
 
-            if (installer(context) != context.packageName)
-                return
-
-            /* TODO: does not work because of restrictions placed on broadcast receivers. */
             val start = Intent(context, MainActivity::class.java)
             start.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
