@@ -15,9 +15,10 @@ import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
+import com.aiovpn.auth.AuthGateActivity
+import com.aiovpn.auth.DeviceTokenStore
 import com.wireguard.android.Application
-import com.wireguard.android.BuildConfig
-import com.wireguard.android.activity.MainActivity
+import com.aiovpn.app.BuildConfig
 import com.wireguard.android.util.UserKnobs
 import com.wireguard.android.util.applicationScope
 import kotlinx.coroutines.CoroutineScope
@@ -43,8 +44,6 @@ import kotlin.time.Duration.Companion.seconds
 
 object Updater {
     private const val TAG = "AIOVPN/Updater"
-
-    // Change this only if your panel/API domain changes
     private const val LATEST_URL = "https://panel.aiovpn.co.uk/api/app/latest"
 
     private val updaterScope = CoroutineScope(Job() + Dispatchers.IO)
@@ -92,7 +91,7 @@ object Updater {
 
         class NeedsUserIntervention(val intent: Intent, private val sessionId: Int) : Progress() {
             private suspend fun installerActive(): Boolean {
-                if (mutableState.firstOrNull() != this@NeedsUserIntervention) return true
+                if (mutableState.value != this@NeedsUserIntervention) return true
                 return try {
                     Application.get().packageManager.packageInstaller
                         .getSessionInfo(sessionId)
@@ -126,8 +125,37 @@ object Updater {
     private val mutableState = MutableStateFlow<Progress>(Progress.Complete)
     val state = mutableState.asStateFlow()
 
+    fun checkNow() {
+        updaterScope.launch {
+            try {
+                emitProgress(Progress.Rechecking, force = true)
+
+                val context = Application.get()
+                val currentVersionCode = currentVersionCode(context)
+                val update = checkForUpdates()
+
+                if (update != null && update.versionCode > currentVersionCode) {
+                    emitProgress(
+                        Progress.Available(
+                            versionName = update.versionName,
+                            versionCode = update.versionCode,
+                            mandatory = update.mandatory,
+                            releaseNotes = update.releaseNotes
+                        ),
+                        force = true
+                    )
+                } else {
+                    emitProgress(Progress.Complete, force = true)
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Manual update check failed", e)
+                emitProgress(Progress.Failure(e), force = true)
+            }
+        }
+    }
+
     private suspend fun emitProgress(progress: Progress, force: Boolean = false) {
-        if (force || mutableState.firstOrNull()?.javaClass != progress.javaClass) {
+        if (force || mutableState.value::class.java != progress.javaClass) {
             mutableState.emit(progress)
         }
     }
@@ -159,37 +187,56 @@ object Updater {
         }
     }
 
-    private fun checkForUpdates(): UpdateInfo? {
-        val connection = URL(LATEST_URL).openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", Application.USER_AGENT)
-        connection.connectTimeout = 15000
-        connection.readTimeout = 20000
-        connection.connect()
+    private suspend fun requireDeviceToken(): String {
+        return DeviceTokenStore(Application.get())
+            .getDeviceToken()
+            ?.takeIf { it.isNotBlank() }
+            ?: throw IOException("Missing device token")
+    }
 
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-            throw IOException("Update check failed: ${connection.responseCode} ${connection.responseMessage}")
+    private fun validateApkUrl(apkUrl: String) {
+        val url = URL(apkUrl)
+        val allowedHosts = setOf("panel.aiovpn.co.uk", "aiovpn.co.uk")
+        if (url.protocol != "https" || url.host !in allowedHosts) {
+            throw SecurityException("Untrusted APK URL: $apkUrl")
         }
+    }
 
-        val response = connection.inputStream.bufferedReader().use { it.readText() }
-        val json = JSONObject(response)
+    private suspend fun checkForUpdates(): UpdateInfo? {
+        val deviceToken = requireDeviceToken()
+        val connection = URL(LATEST_URL).openConnection() as HttpURLConnection
+        try {
+            connection.setRequestProperty("User-Agent", Application.USER_AGENT)
+            connection.setRequestProperty("Authorization", "Bearer $deviceToken")
+            connection.setRequestProperty("X-App-Version-Code", BuildConfig.VERSION_CODE.toString())
+            connection.connectTimeout = 15000
+            connection.readTimeout = 20000
+            connection.connect()
 
-        val id = json.getLong("id")
-        val versionCode = json.getLong("version_code")
-        val versionName = json.getString("version_name")
-        val mandatory = json.optBoolean("mandatory", false)
-        val releaseNotes = json.optString("release_notes", null)?.takeIf { it.isNotBlank() }
-        val sha256 = json.getString("sha256")
-        val apkUrl = json.getString("apk_url")
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IOException("Update check failed: ${connection.responseCode} ${connection.responseMessage}")
+            }
 
-        return UpdateInfo(
-            id = id,
-            versionCode = versionCode,
-            versionName = versionName,
-            mandatory = mandatory,
-            releaseNotes = releaseNotes,
-            sha256 = Sha256Digest.fromHex(sha256),
-            apkUrl = apkUrl
-        )
+            val response = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(response)
+
+            val update = UpdateInfo(
+                id = json.getLong("id"),
+                versionCode = json.getLong("version_code"),
+                versionName = json.getString("version_name"),
+                mandatory = json.optBoolean("mandatory", false),
+                releaseNotes = json.optString("release_notes", null)?.takeIf { it.isNotBlank() },
+                sha256 = Sha256Digest.fromHex(json.getString("sha256")),
+                apkUrl = json.getString("apk_url")
+            )
+
+            validateApkUrl(update.apkUrl)
+            return update
+        } catch (e: Exception) {
+            throw IOException("Invalid update metadata from server", e)
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private suspend fun downloadAndUpdate() = withContext(Dispatchers.IO) {
@@ -223,77 +270,83 @@ object Updater {
 
         emitProgress(Progress.Downloading(0UL, 0UL), true)
 
+        val deviceToken = requireDeviceToken()
         val connection = URL(update.apkUrl).openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", Application.USER_AGENT)
-        connection.connectTimeout = 15000
-        connection.readTimeout = 60000
-        connection.connect()
-
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-            throw IOException("Update APK fetch failed: ${connection.responseCode} ${connection.responseMessage}")
-        }
-
-        var downloadedByteLen: ULong = 0UL
-        val totalByteLen = connection.contentLengthLong.takeIf { it > 0 }?.toULong() ?: 0UL
-        val buffer = ByteArray(32 * 1024)
-        val digest = MessageDigest.getInstance("SHA-256")
-
-        emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
-
-        val installer = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-        }
-
-        // This forces install as an update to the same app only.
-        params.setAppPackageName(context.packageName)
-
-        val session = installer.openSession(installer.createSession(params))
-        var sessionFailure = true
-
         try {
-            val installDest = session.openWrite("aiovpn-update-${update.versionCode}", 0, -1)
+            connection.setRequestProperty("User-Agent", Application.USER_AGENT)
+            connection.setRequestProperty("Authorization", "Bearer $deviceToken")
+            connection.setRequestProperty("X-App-Version-Code", BuildConfig.VERSION_CODE.toString())
+            connection.connectTimeout = 15000
+            connection.readTimeout = 60000
+            connection.connect()
 
-            installDest.use { dest ->
-                connection.inputStream.use { src ->
-                    while (true) {
-                        val readLen = src.read(buffer)
-                        if (readLen <= 0) break
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IOException("Update APK fetch failed: ${connection.responseCode} ${connection.responseMessage}")
+            }
 
-                        digest.update(buffer, 0, readLen)
-                        dest.write(buffer, 0, readLen)
+            var downloadedByteLen: ULong = 0UL
+            val totalByteLen = connection.contentLengthLong.takeIf { it > 0 }?.toULong() ?: 0UL
+            val buffer = ByteArray(32 * 1024)
+            val digest = MessageDigest.getInstance("SHA-256")
 
-                        downloadedByteLen += readLen.toUInt()
-                        emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
+            emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
 
-                        if (downloadedByteLen >= 500UL * 1024UL * 1024UL) {
-                            throw IOException("Update APK too large")
+            val installer = context.packageManager.packageInstaller
+            val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            }
+
+            params.setAppPackageName(context.packageName)
+
+            val session = installer.openSession(installer.createSession(params))
+            var sessionFailure = true
+
+            try {
+                val installDest = session.openWrite("aiovpn-update-${update.versionCode}", 0, -1)
+
+                installDest.use { dest ->
+                    connection.inputStream.use { src ->
+                        while (true) {
+                            val readLen = src.read(buffer)
+                            if (readLen <= 0) break
+
+                            digest.update(buffer, 0, readLen)
+                            dest.write(buffer, 0, readLen)
+
+                            downloadedByteLen += readLen.toUInt()
+                            emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
+
+                            if (downloadedByteLen >= 500UL * 1024UL * 1024UL) {
+                                throw IOException("Update APK too large")
+                            }
                         }
                     }
+
+                    session.fsync(dest)
                 }
 
-                session.fsync(dest)
+                emitProgress(Progress.Installing)
+
+                val actualHash = digest.digest()
+                if (!actualHash.contentEquals(update.sha256.bytes)) {
+                    throw SecurityException("Downloaded APK SHA256 mismatch")
+                }
+
+                sessionFailure = false
+            } finally {
+                if (sessionFailure) {
+                    session.abandon()
+                    session.close()
+                }
             }
 
-            emitProgress(Progress.Installing)
-
-            val actualHash = digest.digest()
-            if (!actualHash.contentEquals(update.sha256.bytes)) {
-                throw SecurityException("Downloaded APK SHA256 mismatch")
-            }
-
-            sessionFailure = false
+            session.commit(pendingIntent.intentSender)
+            session.close()
         } finally {
-            if (sessionFailure) {
-                session.abandon()
-                session.close()
-            }
+            connection.disconnect()
         }
-
-        session.commit(pendingIntent.intentSender)
-        session.close()
     }
 
     private var updating = false
@@ -492,7 +545,7 @@ object Updater {
             if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
             if (installer(context) != context.packageName) return
 
-            val start = Intent(context, MainActivity::class.java)
+            val start = Intent(context, AuthGateActivity::class.java)
             start.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(start)

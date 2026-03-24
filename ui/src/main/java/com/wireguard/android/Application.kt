@@ -4,6 +4,7 @@
  */
 package com.wireguard.android
 
+import com.aiovpn.app.BuildConfig
 import android.content.Context
 import android.content.Intent
 import android.os.Build

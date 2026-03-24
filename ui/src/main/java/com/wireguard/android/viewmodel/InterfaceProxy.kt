@@ -10,7 +10,7 @@ import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
 import androidx.databinding.ObservableArrayList
 import androidx.databinding.ObservableList
-import com.wireguard.android.BR
+import com.aiovpn.app.BR
 import com.wireguard.config.Attribute
 import com.wireguard.config.BadConfigException
 import com.wireguard.config.Interface

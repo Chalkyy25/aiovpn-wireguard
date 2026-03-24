@@ -12,7 +12,7 @@ import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import android.os.Build
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 

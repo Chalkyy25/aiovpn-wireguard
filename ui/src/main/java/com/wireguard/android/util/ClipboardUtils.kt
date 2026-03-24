@@ -12,7 +12,7 @@ import android.widget.TextView
 import androidx.core.content.getSystemService
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
-import com.wireguard.android.R
+import com.aiovpn.app.R
 
 /**
  * Standalone utilities for interacting with the system clipboard.

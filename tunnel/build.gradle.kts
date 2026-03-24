@@ -3,7 +3,7 @@
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.api.tasks.bundling.Zip
 
-val pkg: String = providers.gradleProperty("wireguardPackageName").get()
+val pkg: String = providers.gradleProperty("aioPackageName").get()
 
 plugins {
     alias(libs.plugins.android.library)
@@ -78,7 +78,7 @@ publishing {
         register<MavenPublication>("release") {
             groupId = pkg
             artifactId = "tunnel"
-            version = providers.gradleProperty("wireguardVersionName").get()
+            version = providers.gradleProperty("aioVersionName").get()
             afterEvaluate {
                 from(components["release"])
             }

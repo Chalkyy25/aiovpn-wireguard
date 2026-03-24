@@ -15,7 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.QuantityFormatter
 import kotlinx.coroutines.delay

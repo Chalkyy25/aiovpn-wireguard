@@ -9,7 +9,7 @@ import android.os.RemoteException
 import com.google.zxing.ChecksumException
 import com.google.zxing.NotFoundException
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.backend.BackendException
 import com.wireguard.android.util.RootShell.RootShellException
 import com.wireguard.config.BadConfigException

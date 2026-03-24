@@ -36,9 +36,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textview.MaterialTextView
-import com.wireguard.android.BuildConfig
-import com.wireguard.android.R
-import com.wireguard.android.databinding.LogViewerActivityBinding
+import com.aiovpn.app.BuildConfig
+import com.aiovpn.app.R
+import com.aiovpn.app.databinding.LogViewerActivityBinding
 import com.wireguard.android.util.DownloadsFileSaver
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.resolveAttribute

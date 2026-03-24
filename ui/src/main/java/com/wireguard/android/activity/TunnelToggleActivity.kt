@@ -16,7 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.wireguard.android.Application
 import com.wireguard.android.QuickTileService
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.util.ErrorMessages

@@ -3,7 +3,6 @@
   ~ Copyright © 2017-2026 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
   -->
-
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -48,7 +47,7 @@
                 android:textColor="@color/aio_text_secondary"
                 android:textSize="@dimen/aio_subtitle_size" />
 
-            <!-- Settings Items Card -->
+            <!-- VPN SETTINGS CARD -->
             <LinearLayout
                 style="@style/Aio.CardSurface"
                 android:layout_width="match_parent"
@@ -56,74 +55,89 @@
                 android:orientation="vertical"
                 android:padding="@dimen/aio_card_padding_small">
 
-                <!-- Kill Switch Item -->
-                <RelativeLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="12dp"
+                    android:letterSpacing="0.08"
+                    android:text="VPN Settings"
+                    android:textAllCaps="true"
+                    android:textColor="@color/aio_text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
                     android:id="@+id/settingKillSwitch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/nav_item_selector"
-                    android:focusable="true"
                     android:clickable="true"
-                    android:padding="20dp">
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:padding="20dp"
+                    android:text="@string/aio_setting_kill_switch"
+                    android:textColor="@color/aio_text_primary"
+                    android:textSize="@dimen/aio_subtitle_size" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_centerVertical="true"
-                        android:text="@string/aio_setting_kill_switch"
-                        android:textColor="@color/aio_text_primary"
-                        android:textSize="@dimen/aio_subtitle_size" />
-
-                    <TextView
-                        android:id="@+id/killSwitchStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:text="Off"
-                        android:textColor="@color/aio_text_secondary"
-                        android:textSize="16sp" />
-                </RelativeLayout>
-
-                <!-- Auto Connect Item -->
-                <RelativeLayout
+                <TextView
                     android:id="@+id/settingAutoConnect"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/nav_item_selector"
-                    android:focusable="true"
                     android:clickable="true"
-                    android:padding="20dp">
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:padding="20dp"
+                    android:text="@string/aio_setting_auto_connect"
+                    android:textColor="@color/aio_text_primary"
+                    android:textSize="@dimen/aio_subtitle_size" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_centerVertical="true"
-                        android:text="@string/aio_setting_auto_connect"
-                        android:textColor="@color/aio_text_primary"
-                        android:textSize="@dimen/aio_subtitle_size" />
-
-                    <TextView
-                        android:id="@+id/autoConnectStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:text="Off"
-                        android:textColor="@color/aio_text_secondary"
-                        android:textSize="16sp" />
-                </RelativeLayout>
-
-                <!-- Split Tunneling Item -->
-                <RelativeLayout
-                    android:id="@+id/settingSplitTunneling"
+                <TextView
+                    android:id="@+id/settingProtocol"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@drawable/nav_item_selector"
-                    android:focusable="true"
                     android:clickable="true"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:padding="20dp"
+                    android:text="@string/aio_setting_protocol"
+                    android:textColor="@color/aio_text_primary"
+                    android:textSize="@dimen/aio_subtitle_size" />
+            </LinearLayout>
+
+            <!-- APP UPDATES CARD -->
+            <LinearLayout
+                style="@style/Aio.CardSurface"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/aio_section_spacing"
+                android:orientation="vertical"
+                android:padding="@dimen/aio_card_padding_small">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="12dp"
+                    android:letterSpacing="0.08"
+                    android:text="App Updates"
+                    android:textAllCaps="true"
+                    android:textColor="@color/aio_text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <!-- Current Version -->
+                <RelativeLayout
+                    android:id="@+id/settingCurrentVersion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/nav_item_selector"
+                    android:clickable="false"
+                    android:focusable="false"
                     android:padding="20dp">
 
                     <TextView
@@ -131,21 +145,95 @@
                         android:layout_height="wrap_content"
                         android:layout_alignParentStart="true"
                         android:layout_centerVertical="true"
-                        android:text="Split Tunneling"
+                        android:text="Current Version"
                         android:textColor="@color/aio_text_primary"
                         android:textSize="@dimen/aio_subtitle_size" />
 
                     <TextView
-                        android:id="@+id/splitTunnelingStatus"
+                        android:id="@+id/currentVersionText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_alignParentEnd="true"
                         android:layout_centerVertical="true"
-                        android:text="0 Apps"
+                        android:text="1.0.0"
                         android:textColor="@color/aio_text_secondary"
                         android:textSize="16sp" />
                 </RelativeLayout>
 
+                <!-- Update Status -->
+                <RelativeLayout
+                    android:id="@+id/settingUpdateStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/nav_item_selector"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Update Status"
+                        android:textColor="@color/aio_text_primary"
+                        android:textSize="@dimen/aio_subtitle_size" />
+
+                    <TextView
+                        android:id="@+id/updateStatusText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:text="Checking..."
+                        android:textColor="@color/aio_text_secondary"
+                        android:textSize="16sp" />
+                </RelativeLayout>
+
+                <!-- Check for Updates -->
+                <RelativeLayout
+                    android:id="@+id/settingCheckUpdates"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/nav_item_selector"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Check for Updates"
+                        android:textColor="@color/aio_text_primary"
+                        android:textSize="@dimen/aio_subtitle_size" />
+
+                    <TextView
+                        android:id="@+id/checkUpdatesActionText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:text="Check"
+                        android:textColor="@color/aio_text_secondary"
+                        android:textSize="16sp" />
+                </RelativeLayout>
+
+                <!-- Release Notes -->
+                <TextView
+                    android:id="@+id/updateReleaseNotes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_marginBottom="12dp"
+                    android:text=""
+                    android:textColor="@color/aio_text_secondary"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
         </LinearLayout>

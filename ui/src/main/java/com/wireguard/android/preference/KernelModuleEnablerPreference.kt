@@ -11,7 +11,7 @@ import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.activity.SettingsActivity
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.backend.WgQuickBackend

@@ -17,7 +17,7 @@ import androidx.fragment.app.setFragmentResult
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.util.resolveAttribute
 
 class AddTunnelsSheet : BottomSheetDialogFragment() {

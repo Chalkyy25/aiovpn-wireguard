@@ -7,7 +7,7 @@ package com.wireguard.android.model
 import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
-import com.wireguard.android.BR
+import com.aiovpn.app.BR
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.Keyed

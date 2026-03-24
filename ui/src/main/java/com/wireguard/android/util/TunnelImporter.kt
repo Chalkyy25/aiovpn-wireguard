@@ -11,7 +11,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.fragment.app.FragmentManager
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.fragment.ConfigNamingDialogFragment
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.config.Config

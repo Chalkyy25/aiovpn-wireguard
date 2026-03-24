@@ -27,11 +27,11 @@ import com.google.zxing.qrcode.QRCodeReader
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.activity.TunnelCreatorActivity
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
-import com.wireguard.android.databinding.TunnelListFragmentBinding
-import com.wireguard.android.databinding.TunnelListItemBinding
+import com.aiovpn.app.databinding.TunnelListFragmentBinding
+import com.aiovpn.app.databinding.TunnelListItemBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.updater.SnackbarUpdateShower
 import com.wireguard.android.util.ErrorMessages

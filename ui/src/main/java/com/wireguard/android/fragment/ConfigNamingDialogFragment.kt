@@ -11,8 +11,8 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.wireguard.android.Application
-import com.wireguard.android.R
-import com.wireguard.android.databinding.ConfigNamingDialogFragmentBinding
+import com.aiovpn.app.R
+import com.aiovpn.app.databinding.ConfigNamingDialogFragmentBinding
 import com.wireguard.config.BadConfigException
 import com.wireguard.config.Config
 import kotlinx.coroutines.launch

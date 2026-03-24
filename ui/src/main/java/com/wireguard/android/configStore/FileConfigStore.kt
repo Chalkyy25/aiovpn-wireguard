@@ -6,7 +6,7 @@ package com.wireguard.android.configStore
 
 import android.content.Context
 import android.util.Log
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.config.BadConfigException
 import com.wireguard.config.Config
 import java.io.File

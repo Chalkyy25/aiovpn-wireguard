@@ -11,8 +11,8 @@ import android.util.AttributeSet
 import android.widget.Toast
 import androidx.preference.Preference
 import com.wireguard.android.Application
-import com.wireguard.android.BuildConfig
-import com.wireguard.android.R
+import com.aiovpn.app.BuildConfig
+import com.aiovpn.app.R
 import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.WgQuickBackend

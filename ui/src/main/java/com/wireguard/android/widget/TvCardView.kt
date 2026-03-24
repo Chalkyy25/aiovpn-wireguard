@@ -9,7 +9,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.View
 import com.google.android.material.card.MaterialCardView
-import com.wireguard.android.R
+import com.aiovpn.app.R
 
 class TvCardView(context: Context?, attrs: AttributeSet?) : MaterialCardView(context, attrs) {
     var isUp: Boolean = false

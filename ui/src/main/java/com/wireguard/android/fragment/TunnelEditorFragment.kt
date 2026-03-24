@@ -24,9 +24,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.backend.Tunnel
-import com.wireguard.android.databinding.TunnelEditorFragmentBinding
+import com.aiovpn.app.databinding.TunnelEditorFragmentBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.AdminKnobs
 import com.wireguard.android.util.BiometricAuthenticator

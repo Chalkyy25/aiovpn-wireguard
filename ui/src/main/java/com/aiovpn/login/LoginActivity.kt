@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.aiovpn.home.HomeActivity
 import com.aiovpn.repo.VpnRepository
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

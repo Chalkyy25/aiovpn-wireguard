@@ -13,9 +13,15 @@ class VpnRepository(context: Context) {
     suspend fun getToken(): String? = tokenStore.getToken()
     suspend fun getUsername(): String? = tokenStore.getUsername()
     suspend fun getExpiry(): String? = tokenStore.getExpiry()
-    suspend fun getDevicesAllowed(): String? = tokenStore.getDevicesAllowed()
+    suspend fun getDevicesAllowed(): Int? = tokenStore.getDevicesAllowed()
 
-    suspend fun hasToken(): Boolean = !getToken().isNullOrBlank()
+    fun getTokenSync(): String? {
+        return tokenStore.getTokenSync()
+    }
+
+    suspend fun hasToken(): Boolean {
+        return !getToken().isNullOrBlank()
+    }
 
     private suspend fun requireToken(): String {
         return getToken()?.takeIf { it.isNotBlank() }
@@ -24,25 +30,24 @@ class VpnRepository(context: Context) {
 
     suspend fun login(username: String, password: String) {
         val response = api.login(username.trim(), password)
+
         tokenStore.saveAuth(
             token = response.token,
-            username = response.user?.username ?: username,
+            username = response.user?.username ?: username.trim(),
             expiry = response.user?.expires,
-            devicesAllowed = response.user?.max_conn?.toString()
+            devicesAllowed = response.user?.max_conn
         )
     }
 
-    /**
-     * Fetches fresh profile data from the API and updates local storage.
-     */
     suspend fun refreshProfile() {
         val token = requireToken()
         val profile = api.profile(token)
+
         tokenStore.saveAuth(
             token = token,
             username = profile.username,
             expiry = profile.expires,
-            devicesAllowed = profile.max_conn?.toString()
+            devicesAllowed = profile.max_conn
         )
     }
 
@@ -57,6 +62,13 @@ class VpnRepository(context: Context) {
     }
 
     suspend fun logout() {
+        val token = getToken()
+        if (!token.isNullOrBlank()) {
+            try {
+                api.logout(token)
+            } catch (_: Exception) {
+            }
+        }
         tokenStore.clear()
     }
 }

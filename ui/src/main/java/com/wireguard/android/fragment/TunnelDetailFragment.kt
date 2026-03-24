@@ -15,10 +15,10 @@ import androidx.core.view.MenuProvider
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.backend.Tunnel
-import com.wireguard.android.databinding.TunnelDetailFragmentBinding
-import com.wireguard.android.databinding.TunnelDetailPeerBinding
+import com.aiovpn.app.databinding.TunnelDetailFragmentBinding
+import com.aiovpn.app.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
 import kotlinx.coroutines.delay

@@ -1,8 +1,3 @@
-/*
- * Copyright © 2017-2026 WireGuard LLC. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package com.aiovpn.api
 
 import android.net.TrafficStats
@@ -19,7 +14,6 @@ import java.util.concurrent.TimeUnit
 class AioApi(
     private val baseUrl: String = "https://panel.aiovpn.co.uk"
 ) {
-    // USE LAZY TO PREVENT ANR DURING CLASS INITIALIZATION
     private val client by lazy {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
@@ -37,6 +31,7 @@ class AioApi(
     private val loginAdapter by lazy { moshi.adapter(LoginResponse::class.java) }
     private val profileAdapter by lazy { moshi.adapter(ProfileResponse::class.java) }
     private val serversAdapter by lazy { moshi.adapter(ServersResponse::class.java) }
+    private val deviceRegisterAdapter by lazy { moshi.adapter(DeviceRegisterResponse::class.java) }
 
     @Throws(IOException::class)
     fun login(username: String, password: String): LoginResponse = withSocketTag(NETWORK_TAG_AUTH) {
@@ -53,8 +48,62 @@ class AioApi(
 
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
-            if (!res.isSuccessful) throw IOException("Login failed ${res.code}: $raw")
+            if (!res.isSuccessful) {
+                throw IOException("Login failed ${res.code}: $raw")
+            }
             loginAdapter.fromJson(raw) ?: throw IOException("Bad JSON: $raw")
+        }
+    }
+
+    @Throws(IOException::class)
+    fun logout(token: String) = withSocketTag(NETWORK_TAG_AUTH) {
+        val req = Request.Builder()
+            .url("$baseUrl/api/auth/logout")
+            .header("Accept", "application/json")
+            .header("Authorization", "Bearer $token")
+            .post(FormBody.Builder().build())
+            .build()
+
+        client.newCall(req).execute().use { res ->
+            val raw = res.body?.string().orEmpty()
+            if (!res.isSuccessful) {
+                throw IOException("Logout failed ${res.code}: $raw")
+            }
+        }
+    }
+
+    @Throws(IOException::class)
+    fun registerDeviceToken(
+        deviceUuid: String,
+        model: String?,
+        osVersion: String?,
+        appVersionCode: Int
+    ): String = withSocketTag(NETWORK_TAG_AUTH) {
+        val body = FormBody.Builder()
+            .add("device_uuid", deviceUuid)
+            .add("model", model.orEmpty())
+            .add("os_version", osVersion.orEmpty())
+            .add("app_version_code", appVersionCode.toString())
+            .build()
+
+        val req = Request.Builder()
+            .url("$baseUrl/api/devices/register-token")
+            .header("Accept", "application/json")
+            .post(body)
+            .build()
+
+        client.newCall(req).execute().use { res ->
+            val raw = res.body?.string().orEmpty()
+            Log.d("AIOVPN", "Device register response code=${res.code} body=$raw")
+
+            if (!res.isSuccessful) {
+                throw IOException("Device token registration failed ${res.code}: $raw")
+            }
+
+            val parsed = deviceRegisterAdapter.fromJson(raw)
+                ?: throw IOException("Bad JSON: $raw")
+
+            parsed.device_token
         }
     }
 
@@ -69,7 +118,9 @@ class AioApi(
 
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
-            if (!res.isSuccessful) throw IOException("Profile failed ${res.code}: $raw")
+            if (!res.isSuccessful) {
+                throw IOException("Profile failed ${res.code}: $raw")
+            }
             profileAdapter.fromJson(raw) ?: throw IOException("Bad JSON: $raw")
         }
     }
@@ -85,6 +136,7 @@ class AioApi(
 
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
+
             if (!res.isSuccessful) {
                 Log.e(TAG, "Servers failed code=${res.code} body=$raw")
                 throw IOException("Servers failed ${res.code}: $raw")
@@ -93,7 +145,7 @@ class AioApi(
             val parsed = try {
                 serversAdapter.fromJson(raw)
             } catch (e: Exception) {
-                Log.e(TAG, "Parsing failed for body=$raw", e)
+                Log.e(TAG, "Servers parsing failed body=$raw", e)
                 throw IOException("Parsing failed: ${e.message}", e)
             } ?: throw IOException("Empty response body")
 
@@ -112,7 +164,9 @@ class AioApi(
 
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
-            if (!res.isSuccessful) throw IOException("Config failed ${res.code}: $raw")
+            if (!res.isSuccessful) {
+                throw IOException("Config failed ${res.code}: $raw")
+            }
             raw
         }
     }
@@ -151,11 +205,17 @@ data class UserDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class DeviceRegisterResponse(
+    val device_token: String
+)
+
+@JsonClass(generateAdapter = true)
 data class ProfileResponse(
     val id: Int,
     val username: String,
     val expires: String? = null,
-    val max_conn: Int? = null
+    val max_conn: Int? = null,
+    val servers: List<ServerDto> = emptyList()
 )
 
 @JsonClass(generateAdapter = true)
@@ -169,7 +229,17 @@ data class ServerDto(
     val name: String? = null,
     val label: String? = null,
     val endpoint: String? = null,
+    val ip: String? = null,
     val port: Int? = null,
     val country: String? = null,
-    val city: String? = null
-)
+    val country_code: String? = null,
+    val country_name: String? = null,
+    val city: String? = null,
+    val protocol: String? = null,
+    val transport: String? = null
+) {
+    val pingHost: String
+        get() = endpoint?.takeIf { it.isNotBlank() }
+            ?: ip?.takeIf { it.isNotBlank() }
+            ?: ""
+}

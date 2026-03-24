@@ -18,7 +18,7 @@ import com.aiovpn.home.HomeActivity
 import com.aiovpn.repo.VpnRepository
 import com.aiovpn.util.PingUtil
 import com.aiovpn.wireguard.WgAdapter
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

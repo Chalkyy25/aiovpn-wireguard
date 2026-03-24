@@ -24,7 +24,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.aiovpn.login.ServerListActivity
 import com.aiovpn.util.SettingsStore
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

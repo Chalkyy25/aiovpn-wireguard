@@ -8,7 +8,7 @@ import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.util.ToolsInstaller
 import com.wireguard.android.util.lifecycleScope
 import kotlinx.coroutines.Dispatchers

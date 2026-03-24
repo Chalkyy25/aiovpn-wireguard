@@ -16,6 +16,8 @@ import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import com.aiovpn.app.R
+import com.aiovpn.app.BR
 import androidx.annotation.RequiresApi
 import androidx.databinding.Observable
 import androidx.databinding.Observable.OnPropertyChangedCallback
@@ -59,13 +61,21 @@ class QuickTileService : TileService() {
             when (val tunnel = tunnel) {
                 null -> {
                     Log.d(TAG, "No tunnel set, so launching main activity")
-                    val intent = Intent(this@QuickTileService, MainActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    val intent = Intent(this@QuickTileService, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        startActivityAndCollapse(PendingIntent.getActivity(this@QuickTileService, 0, intent, PendingIntent.FLAG_IMMUTABLE))
+                        val pendingIntent = PendingIntent.getActivity(
+                            this@QuickTileService,
+                            0,
+                            intent,
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                        )
+                        startActivityAndCollapse(pendingIntent)
                     } else {
                         @Suppress("DEPRECATION")
-                        startActivityAndCollapse(intent)
+                        startActivity(intent)
                     }
                 }
 

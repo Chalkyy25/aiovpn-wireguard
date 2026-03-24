@@ -15,8 +15,8 @@ import androidx.databinding.Bindable
 import com.wireguard.android.Application.Companion.get
 import com.wireguard.android.Application.Companion.getBackend
 import com.wireguard.android.Application.Companion.getTunnelManager
-import com.wireguard.android.BR
-import com.wireguard.android.R
+import com.aiovpn.app.BR
+import com.aiovpn.app.R
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.configStore.ConfigStore

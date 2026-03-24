@@ -1,42 +1,61 @@
 package com.aiovpn.auth
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-private val Context.dataStore by preferencesDataStore(name = "aio_auth")
+class TokenStore(context: Context) {
 
-class TokenStore(private val context: Context) {
-    private val KEY_TOKEN = stringPreferencesKey("token")
-    private val KEY_USERNAME = stringPreferencesKey("username")
-    private val KEY_EXPIRY = stringPreferencesKey("expiry")
-    private val KEY_DEVICES_ALLOWED = stringPreferencesKey("devices_allowed")
+    private val prefs = context.getSharedPreferences("aio_vpn_auth", Context.MODE_PRIVATE)
 
-    suspend fun saveAuth(token: String, username: String, expiry: String?, devicesAllowed: String?) {
-        context.dataStore.edit {
-            it[KEY_TOKEN] = token
-            it[KEY_USERNAME] = username
-            if (expiry != null) it[KEY_EXPIRY] = expiry else it.remove(KEY_EXPIRY)
-            if (devicesAllowed != null) it[KEY_DEVICES_ALLOWED] = devicesAllowed else it.remove(KEY_DEVICES_ALLOWED)
-        }
+    suspend fun getToken(): String? = withContext(Dispatchers.IO) {
+        prefs.getString(KEY_TOKEN, null)
     }
 
-    suspend fun getToken(): String? = context.dataStore.data.first()[KEY_TOKEN]
+    suspend fun getUsername(): String? = withContext(Dispatchers.IO) {
+        prefs.getString(KEY_USERNAME, null)
+    }
 
-    suspend fun getUsername(): String? = context.dataStore.data.first()[KEY_USERNAME]
+    suspend fun getExpiry(): String? = withContext(Dispatchers.IO) {
+        prefs.getString(KEY_EXPIRY, null)
+    }
 
-    suspend fun getExpiry(): String? = context.dataStore.data.first()[KEY_EXPIRY]
+    suspend fun getDevicesAllowed(): Int? = withContext(Dispatchers.IO) {
+        if (!prefs.contains(KEY_DEVICES_ALLOWED)) return@withContext null
+        prefs.getInt(KEY_DEVICES_ALLOWED, 0)
+    }
 
-    suspend fun getDevicesAllowed(): String? = context.dataStore.data.first()[KEY_DEVICES_ALLOWED]
+    suspend fun saveAuth(
+        token: String,
+        username: String,
+        expiry: String?,
+        devicesAllowed: Int?
+    ) = withContext(Dispatchers.IO) {
+        prefs.edit().apply {
+            putString(KEY_TOKEN, token)
+            putString(KEY_USERNAME, username)
+            putString(KEY_EXPIRY, expiry)
 
-    suspend fun clear() {
-        context.dataStore.edit {
-            it.remove(KEY_TOKEN)
-            it.remove(KEY_USERNAME)
-            it.remove(KEY_EXPIRY)
-            it.remove(KEY_DEVICES_ALLOWED)
-        }
+            if (devicesAllowed != null) {
+                putInt(KEY_DEVICES_ALLOWED, devicesAllowed)
+            } else {
+                remove(KEY_DEVICES_ALLOWED)
+            }
+        }.apply()
+    }
+
+    suspend fun clear() = withContext(Dispatchers.IO) {
+        prefs.edit().clear().apply()
+    }
+
+    fun getTokenSync(): String? {
+        return prefs.getString(KEY_TOKEN, null)
+    }
+
+    private companion object {
+        private const val KEY_TOKEN = "token"
+        private const val KEY_USERNAME = "username"
+        private const val KEY_EXPIRY = "expiry"
+        private const val KEY_DEVICES_ALLOWED = "devices_allowed"
     }
 }

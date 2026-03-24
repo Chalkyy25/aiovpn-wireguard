@@ -15,7 +15,7 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.preference.Preference
 import com.wireguard.android.QuickTileService
-import com.wireguard.android.R
+import com.aiovpn.app.R
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(context, attrs) {

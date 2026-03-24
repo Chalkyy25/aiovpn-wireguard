@@ -13,7 +13,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.Fragment
-import com.wireguard.android.R
+import com.aiovpn.app.R
 
 
 object BiometricAuthenticator {

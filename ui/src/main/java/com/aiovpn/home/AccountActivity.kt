@@ -1,8 +1,3 @@
-/*
- * Copyright © 2017-2026 WireGuard LLC. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package com.aiovpn.home
 
 import android.animation.ValueAnimator
@@ -19,13 +14,10 @@ import androidx.lifecycle.lifecycleScope
 import com.aiovpn.login.LoginActivity
 import com.aiovpn.login.ServerListActivity
 import com.aiovpn.repo.VpnRepository
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 
 class AccountActivity : AppCompatActivity() {
 
@@ -71,30 +63,39 @@ class AccountActivity : AppCompatActivity() {
             findViewById(R.id.navSettings)
         )
 
-        loadAccountData()
         bindNavigation()
+        loadAccountData()
 
-        logoutButton.setOnClickListener {
-            handleLogout()
+        logoutButton.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.animate()
+                    .scaleX(1.04f)
+                    .scaleY(1.04f)
+                    .setDuration(120)
+                    .start()
+            } else {
+                v.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(120)
+                    .start()
+            }
         }
     }
 
     private fun loadAccountData() {
         lifecycleScope.launch {
             try {
-                // 1. Show cached data immediately
                 updateUi(
                     username = repo.getUsername(),
                     expiry = repo.getExpiry(),
                     devices = repo.getDevicesAllowed()
                 )
 
-                // 2. Fetch fresh data from backend
                 withContext(Dispatchers.IO) {
                     repo.refreshProfile()
                 }
 
-                // 3. Update UI with fresh data
                 updateUi(
                     username = repo.getUsername(),
                     expiry = repo.getExpiry(),
@@ -106,9 +107,9 @@ class AccountActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateUi(username: String?, expiry: String?, devices: String?) {
+    private fun updateUi(username: String?, expiry: String?, devices: Int?) {
         val displayUser = username.orEmpty().ifBlank { "-" }
-        val displayDevices = devices.orEmpty().ifBlank { "-" }
+        val displayDevices = devices?.toString() ?: "-"
         val displayExpiry = formatExpiryDate(expiry)
 
         accountEmail.text = displayUser
@@ -118,44 +119,65 @@ class AccountActivity : AppCompatActivity() {
     }
 
     private fun formatExpiryDate(isoDate: String?): String {
-        if (isoDate.isNullOrBlank()) return "-"
+        if (isoDate.isNullOrBlank()) return "Never"
+
         return try {
-            // Your API format: 2027-10-12T20:06:48.000000Z
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-            val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-            val date = inputFormat.parse(isoDate)
-            if (date != null) outputFormat.format(date) else isoDate
+            val instant = java.time.OffsetDateTime.parse(isoDate)
+            instant.format(
+                java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")
+            )
         } catch (e: Exception) {
-            isoDate // Fallback to raw string if parsing fails
+            Log.e("AccountActivity", "Failed to parse expiry date: $isoDate", e)
+            isoDate
         }
     }
 
     private fun handleLogout() {
         lifecycleScope.launch {
-            repo.logout()
-            val intent = Intent(this@AccountActivity, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            try {
+                repo.logout()
+            } catch (e: Exception) {
+                Log.e("AccountActivity", "Logout failed", e)
+            }
+
+            val intent = Intent(this@AccountActivity, LoginActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
             startActivity(intent)
             finish()
         }
     }
 
     private fun bindNavigation() {
-        val navContainers = listOf(navHomeContainer, navServersContainer, navAccountContainer, navSettingsContainer)
+        val navContainers = listOf(
+            navHomeContainer,
+            navServersContainer,
+            navAccountContainer,
+            navSettingsContainer
+        )
 
         navAccountContainer.isSelected = true
 
         navContainers.forEach { container ->
-            container.setOnFocusChangeListener { v, hasFocus ->
+            container.setOnFocusChangeListener { view, hasFocus ->
                 if (hasFocus) {
                     navContainers.forEach { it.isSelected = false }
+                    view.isSelected = true
                     toggleSidebar(true)
-                    v.animate().scaleX(1.03f).scaleY(1.03f).setDuration(120).start()
+
+                    view.animate()
+                        .scaleX(1.03f)
+                        .scaleY(1.03f)
+                        .setDuration(120)
+                        .start()
                 } else {
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-                    v.postDelayed({
+                    view.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(120)
+                        .start()
+
+                    view.postDelayed({
                         if (navContainers.none { it.hasFocus() }) {
                             navAccountContainer.isSelected = true
                             toggleSidebar(false)
@@ -179,11 +201,16 @@ class AccountActivity : AppCompatActivity() {
                         startActivity(Intent(this, HomeActivity::class.java))
                         finish()
                     }
+
                     R.id.navServersContainer -> {
                         startActivity(Intent(this, ServerListActivity::class.java))
                         finish()
                     }
-                    R.id.navAccountContainer -> {}
+
+                    R.id.navAccountContainer -> {
+                        // already here
+                    }
+
                     R.id.navSettingsContainer -> {
                         startActivity(Intent(this, SettingsActivity::class.java))
                         finish()
@@ -197,24 +224,32 @@ class AccountActivity : AppCompatActivity() {
         if (isExpanded == expand) return
         isExpanded = expand
 
+        val startWidth = sideNav.width
         val targetWidth = if (expand) 240.toPx() else 84.toPx()
         val targetAlpha = if (expand) 1f else 0f
 
-        val widthAnimator = ValueAnimator.ofInt(sideNav.width, targetWidth)
-        widthAnimator.addUpdateListener { animator ->
-            val params = sideNav.layoutParams
-            params.width = animator.animatedValue as Int
-            sideNav.layoutParams = params
+        ValueAnimator.ofInt(startWidth, targetWidth).apply {
+            duration = 250
+            interpolator = AccelerateDecelerateInterpolator()
+
+            addUpdateListener { animator ->
+                val params = sideNav.layoutParams
+                params.width = animator.animatedValue as Int
+                sideNav.layoutParams = params
+            }
+
+            start()
         }
 
-        widthAnimator.duration = 250
-        widthAnimator.interpolator = AccelerateDecelerateInterpolator()
-        widthAnimator.start()
-
         navTexts.forEach { text ->
-            text.animate().alpha(targetAlpha).setDuration(200).start()
+            text.animate()
+                .alpha(targetAlpha)
+                .setDuration(200)
+                .start()
         }
     }
 
-    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
+    private fun Int.toPx(): Int {
+        return (this * resources.displayMetrics.density).toInt()
+    }
 }

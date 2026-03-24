@@ -11,7 +11,7 @@ import androidx.databinding.DataBindingUtil
 import androidx.databinding.ObservableList
 import androidx.databinding.ViewDataBinding
 import androidx.recyclerview.widget.RecyclerView
-import com.wireguard.android.BR
+import com.aiovpn.app.BR
 import java.lang.ref.WeakReference
 
 /**

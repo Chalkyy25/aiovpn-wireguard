@@ -5,7 +5,7 @@
 package com.wireguard.android.activity
 
 import android.os.Bundle
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.model.ObservableTunnel
 
 /**

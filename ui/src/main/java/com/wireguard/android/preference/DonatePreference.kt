@@ -12,7 +12,7 @@ import android.util.AttributeSet
 import android.widget.Toast
 import androidx.preference.Preference
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.updater.Updater
 import com.wireguard.android.util.ErrorMessages
 import androidx.core.net.toUri

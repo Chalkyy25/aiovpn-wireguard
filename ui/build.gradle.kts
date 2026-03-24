@@ -3,35 +3,40 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-val pkg: String = providers.gradleProperty("wireguardPackageName").get()
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.kapt)
 }
 
+val pkg: String = providers.gradleProperty("aioPackageName").get()
+
 android {
     compileSdk = 36
+
     buildFeatures {
         buildConfig = true
         dataBinding = true
         viewBinding = true
     }
+
     namespace = pkg
+
     defaultConfig {
         applicationId = pkg
         minSdk = 24
         targetSdk = 36
-        versionCode = providers.gradleProperty("wireguardVersionCode").get().toInt()
-        versionName = providers.gradleProperty("wireguardVersionName").get()
+        versionCode = providers.gradleProperty("aioVersionCode").get().toInt()
+        versionName = providers.gradleProperty("aioVersionName").get()
         buildConfigField("int", "MIN_SDK_VERSION", minSdk.toString())
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -45,23 +50,28 @@ android {
                 }
             }
         }
+
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
+
         create("googleplay") {
             initWith(getByName("release"))
             matchingFallbacks += "release"
         }
     }
+
     androidResources {
         generateLocaleConfig = true
     }
+
     lint {
         disable += "LongLogTag"
         warning += "MissingTranslation"
         warning += "ImpliedQuantity"
     }
+
     buildToolsVersion = "35.0.0"
     ndkVersion = "27.0.12077973"
 }

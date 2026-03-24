@@ -10,7 +10,7 @@ import android.util.Log
 import androidx.preference.Preference
 import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.util.AdminKnobs
 import com.wireguard.android.util.BiometricAuthenticator
 import com.wireguard.android.util.DownloadsFileSaver

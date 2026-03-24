@@ -31,8 +31,9 @@ import com.aiovpn.util.ConnectButtonAnimator
 import com.aiovpn.util.PingUtil
 import com.aiovpn.util.SettingsStore
 import com.aiovpn.wireguard.WgAdapter
+import com.aiovpn.repo.DeviceRepository
 import com.wireguard.android.Application
-import com.wireguard.android.R
+import com.aiovpn.app.R
 import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -138,6 +139,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         handleIntent(intent)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                DeviceRepository(this@HomeActivity).getOrRegisterDeviceToken()
+            } catch (e: Exception) {
+                Log.e("AIOVPN", "HomeActivity device registration failed", e)
+            }
+        }
+
         observeTunnelState()
 
         connectButton.post {

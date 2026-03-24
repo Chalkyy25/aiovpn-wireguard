@@ -21,9 +21,9 @@ import androidx.fragment.app.setFragmentResult
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
-import com.wireguard.android.BR
-import com.wireguard.android.R
-import com.wireguard.android.databinding.AppListDialogFragmentBinding
+import com.aiovpn.app.BR
+import com.aiovpn.app.R
+import com.aiovpn.app.databinding.AppListDialogFragmentBinding
 import com.wireguard.android.databinding.ObservableKeyedArrayList
 import com.wireguard.android.model.ApplicationData
 import com.wireguard.android.util.ErrorMessages
